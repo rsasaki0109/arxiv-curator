@@ -45,6 +45,54 @@ class Paper:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 
+@dataclass
+class EnrichedPaper(Paper):
+    """Paper enriched with Semantic Scholar metadata."""
+
+    citation_count: int = 0
+    venue: str = ""
+    is_open_access: bool = False
+    code_url: str = ""
+
+    @classmethod
+    def from_paper(
+        cls,
+        paper: Paper,
+        citation_count: int = 0,
+        venue: str = "",
+        is_open_access: bool = False,
+        code_url: str = "",
+    ) -> "EnrichedPaper":
+        """Create an EnrichedPaper from a base Paper."""
+        return cls(
+            title=paper.title,
+            authors=paper.authors,
+            abstract=paper.abstract,
+            published=paper.published,
+            arxiv_url=paper.arxiv_url,
+            pdf_url=paper.pdf_url,
+            categories=paper.categories,
+            citation_count=citation_count,
+            venue=venue,
+            is_open_access=is_open_access,
+            code_url=code_url,
+        )
+
+    def to_markdown(self) -> str:
+        """Format as an awesome-list style markdown entry with enriched info."""
+        base = super().to_markdown()
+        extras = []
+        if self.citation_count > 0:
+            extras.append(f"Citations: {self.citation_count}")
+        if self.venue:
+            extras.append(self.venue)
+        if self.code_url:
+            extras.append(f"[Code]({self.code_url})")
+        if extras:
+            return f"{base} | {' | '.join(extras)}"
+        return base
+
+
 # JSON Schema for interoperability with github-curator
 PAPER_JSON_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

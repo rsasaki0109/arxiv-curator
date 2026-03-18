@@ -47,19 +47,37 @@ arxiv-curator はその間を埋めるツールです。
 | カテゴリで絞る | クエリ構文を調べて `cat:cs.CV` を組み立てる | `--category cs.CV` |
 | 結果を JSON で保存 | レスポンスの XML→JSON 変換を実装 | `--format json` / `export` コマンド |
 
+### Semantic Scholar 連携
+
+`enrich` コマンドまたは `--enrich` フラグを使うと、Semantic Scholar API 経由で以下の情報を取得できます。
+
+| 情報 | 説明 |
+|---|---|
+| 引用数 | 論文の被引用回数 |
+| 学会・ジャーナル情報 | 掲載先（CVPR, ICRA 等） |
+| オープンアクセス | OA 状態の確認 |
+| コードリンク | Papers with Code 経由（利用可能な場合） |
+
+```bash
+# enrich コマンド: arXiv 検索 + Semantic Scholar で情報付加
+arxiv-curator enrich "transformer SLAM" --max-results 5
+
+# 既存コマンドに --enrich フラグを付けても同様
+arxiv-curator search transformer SLAM --enrich
+```
+
 ### arXiv API の制限事項
 
-arXiv API の仕様上、以下は取得できません。
+arXiv API の仕様上、以下は直接取得できません（Semantic Scholar 連携で一部対応済み）。
 
-| 取得できない情報 | 理由 | 代替手段 |
+| 情報 | arXiv API | Semantic Scholar 連携 |
 |---|---|---|
-| 引用数 | arXiv API は引用情報を持たない | Semantic Scholar API |
-| コード実装の有無 | arXiv にはコードリンク情報がない | Papers with Code API |
-| 学会・ジャーナル情報 | arXiv はプレプリントサーバ | Semantic Scholar API |
-| 全文検索 | タイトルと要旨のみ検索可能 | — |
-| セマンティック検索 | キーワード一致ベースのみ | Semantic Scholar API |
+| 引用数 | 取得不可 | `enrich` / `--enrich` で取得可能 |
+| 学会・ジャーナル情報 | 取得不可 | `enrich` / `--enrich` で取得可能 |
+| コード実装の有無 | 取得不可 | Papers with Code 経由で一部取得可能 |
+| 全文検索 | タイトルと要旨のみ | — |
+| セマンティック検索 | キーワード一致ベースのみ | — |
 
-> これらは将来的に Semantic Scholar API / Papers with Code API との連携で対応予定です。
 > GitHub リポジトリ側の情報（スター数・言語・更新日）は [github-curator](https://github.com/rsasaki0109/github-curator) で取得できます。
 
 ### インストール
@@ -190,6 +208,7 @@ It extracts keywords from the repository name, searches arXiv, and suggests pape
 | Category filter | `--category cs.CV` etc. |
 | Periodic watch | `watch` command + GitHub Actions for weekly checks |
 | Awesome-list output | `--format markdown` for direct copy-paste |
+| Semantic Scholar enrichment | `enrich` command or `--enrich` flag adds citation counts, venue, and open access info |
 
 Works alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks).
 
@@ -206,19 +225,37 @@ The arXiv API is publicly available, but using it for awesome-list maintenance r
 | Filter by category | Look up query syntax, build `cat:cs.CV` | `--category cs.CV` |
 | Save as JSON | Implement XML-to-JSON conversion | `--format json` / `export` command |
 
+### Semantic Scholar Integration
+
+Use the `enrich` command or `--enrich` flag to fetch additional metadata from Semantic Scholar API:
+
+| Info | Description |
+|---|---|
+| Citation counts | Number of citations for each paper |
+| Conference/journal | Publication venue (CVPR, ICRA, etc.) |
+| Open access | Whether the paper is open access |
+| Code link | Via Papers with Code (when available) |
+
+```bash
+# enrich command: arXiv search + Semantic Scholar metadata
+arxiv-curator enrich "transformer SLAM" --max-results 5
+
+# Or add --enrich flag to existing commands
+arxiv-curator search transformer SLAM --enrich
+```
+
 ### arXiv API Limitations
 
-The following cannot be retrieved due to arXiv API constraints:
+The following cannot be retrieved from arXiv API directly (some now available via Semantic Scholar integration):
 
-| Not available | Reason | Alternative |
+| Info | arXiv API | Semantic Scholar Integration |
 |---|---|---|
-| Citation counts | arXiv API has no citation data | Semantic Scholar API |
-| Code availability | No code link info in arXiv | Papers with Code API |
-| Conference/journal info | arXiv is a preprint server | Semantic Scholar API |
+| Citation counts | Not available | Available via `enrich` / `--enrich` |
+| Conference/journal info | Not available | Available via `enrich` / `--enrich` |
+| Code availability | Not available | Partially available via Papers with Code |
 | Full-text search | Title and abstract only | — |
-| Semantic search | Keyword matching only | Semantic Scholar API |
+| Semantic search | Keyword matching only | — |
 
-> These are planned via Semantic Scholar / Papers with Code API integration.
 > GitHub repository info (stars, language, last updated) is available via [github-curator](https://github.com/rsasaki0109/github-curator).
 
 ### Installation

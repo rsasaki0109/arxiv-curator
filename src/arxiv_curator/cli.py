@@ -52,6 +52,9 @@ def search(
     sort: str = typer.Option(
         "relevance", "--sort", help="Sort by: relevance, date, title"
     ),
+    enrich: bool = typer.Option(
+        False, "--enrich", "-e", help="Enrich with Semantic Scholar data"
+    ),
 ) -> None:
     """Search arXiv for papers matching keywords."""
     query = " AND ".join(keywords)
@@ -72,6 +75,10 @@ def search(
     papers = _sort_papers(papers, sort)
 
     console.print(f"Found [bold green]{len(papers)}[/bold green] papers.\n")
+
+    if enrich:
+        with console.status("Enriching with Semantic Scholar..."):
+            papers = enrich_papers(papers)
 
     if fmt == "table":
         console.print(format_as_table(papers))
@@ -99,6 +106,9 @@ def suggest(
     ),
     append_to: Optional[Path] = typer.Option(
         None, "--append-to", help="Append markdown entries to the specified file"
+    ),
+    enrich: bool = typer.Option(
+        False, "--enrich", "-e", help="Enrich with Semantic Scholar data"
     ),
 ) -> None:
     """Suggest new arXiv papers for an awesome-list repository.
@@ -154,6 +164,10 @@ def suggest(
         f"(filtered {len(papers) - len(new_papers)} duplicates).\n"
     )
 
+    if enrich:
+        with console.status("Enriching with Semantic Scholar..."):
+            new_papers = enrich_papers(new_papers)
+
     if fmt == "table":
         console.print(format_as_table(new_papers))
     elif fmt == "json":
@@ -181,6 +195,56 @@ def suggest(
             "Run with --format markdown to get copy-paste ready output, "
             "or --append-to FILE to save them.[/dim]"
         )
+
+
+@app.command(name="enrich")
+def enrich_cmd(
+    keywords: list[str] = typer.Argument(..., help="Search keywords"),
+    since: Optional[str] = typer.Option(
+        None, "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
+    ),
+    max_results: int = typer.Option(20, "--max-results", "-n", help="Max results"),
+    fmt: str = typer.Option(
+        "table", "--format", "-f", help="Output format: table, json, markdown"
+    ),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+) -> None:
+    """Search arXiv and enrich results with Semantic Scholar data.
+
+    Searches arXiv for papers, then queries Semantic Scholar for each
+    paper to add citation counts, venue, and open access information.
+    """
+    query = " AND ".join(keywords)
+    since_date = None
+    if since:
+        since_date = datetime.fromisoformat(since)
+
+    with console.status("Searching arXiv..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    if category:
+        papers = [p for p in papers if category in p.categories]
+
+    if not papers:
+        console.print("[yellow]No papers found.[/yellow]")
+        raise typer.Exit()
+
+    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+
+    with console.status("Enriching with Semantic Scholar..."):
+        enriched = enrich_papers(papers)
+
+    if fmt == "table":
+        console.print(format_as_table(enriched))
+    elif fmt == "json":
+        console.print(format_as_json(enriched))
+    elif fmt == "markdown":
+        console.print(format_as_markdown(enriched))
+    else:
+        console.print(f"[red]Unknown format: {fmt}[/red]")
+        raise typer.Exit(1)
 
 
 @app.command()
