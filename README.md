@@ -105,6 +105,12 @@ arxiv-curator search transformer SLAM --since 2025-01-01
 
 # 出力形式を指定 (table / json / markdown)
 arxiv-curator search "visual odometry" --format markdown --max-results 10
+
+# ソート順を指定 (relevance / date / title)
+arxiv-curator search transformer SLAM --sort date
+
+# Semantic Scholar の引用数・学会情報を付加
+arxiv-curator search transformer SLAM --enrich
 ```
 
 #### 論文リストへの新着論文提案
@@ -116,6 +122,19 @@ arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 
 # 日付フィルタ付き
 arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --since 2025-01-01 --format markdown
+
+# 結果を Markdown ファイルに追記
+arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --append-to new_papers.md
+```
+
+#### 定期監視 (watch)
+
+```bash
+# キーワードで新着論文を定期チェックし、差分を JSON に蓄積
+arxiv-curator watch SLAM LiDAR --days 7 --output-dir ./results
+
+# awesome-list URL からキーワードを自動抽出して監視
+arxiv-curator watch --from-awesome https://github.com/xxx/Awesome-SLAM --days 14
 ```
 
 #### Web デモ
@@ -284,6 +303,12 @@ arxiv-curator search transformer SLAM --since 2025-01-01
 
 # Specify output format (table / json / markdown)
 arxiv-curator search "visual odometry" --format markdown --max-results 10
+
+# Sort results (relevance / date / title)
+arxiv-curator search transformer SLAM --sort date
+
+# Enrich with Semantic Scholar citation counts and venue info
+arxiv-curator search transformer SLAM --enrich
 ```
 
 #### Suggest new papers for a paper list
@@ -296,6 +321,19 @@ arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 
 # With date filter
 arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --since 2025-01-01 --format markdown
+
+# Append results to a Markdown file
+arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --append-to new_papers.md
+```
+
+#### Watch for new papers
+
+```bash
+# Periodically check for new papers and accumulate results in a JSON file
+arxiv-curator watch SLAM LiDAR --days 7 --output-dir ./results
+
+# Auto-extract keywords from an awesome-list URL
+arxiv-curator watch --from-awesome https://github.com/xxx/Awesome-SLAM --days 14
 ```
 
 #### Web Demo

@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-import requests
 import typer
 from rich.console import Console
 
+from arxiv_curator import __version__
 from arxiv_curator.arxiv_api import search_papers
 from arxiv_curator.formatter import format_as_json, format_as_markdown, format_as_table
 from arxiv_curator.models import Paper
-from arxiv_curator.parser import parse_awesome_readme, parse_awesome_url
+from arxiv_curator.parser import (
+    fetch_readme_content,
+    filter_new_papers,
+    parse_awesome_readme,
+    parse_awesome_url,
+)
 from arxiv_curator.semantic_scholar import enrich_papers
 
 app = typer.Typer(
@@ -60,7 +64,8 @@ def _output_papers(
     if fmt == "table":
         out_console.print(format_as_table(papers))
     elif fmt == "json":
-        out_console.print(format_as_json(papers))
+        # Use plain print() to avoid Rich markup contaminating JSON output
+        print(format_as_json(papers))
     elif fmt == "markdown":
         out_console.print(format_as_markdown(papers))
     else:
@@ -76,6 +81,31 @@ def _sort_papers(papers: list[Paper], sort: str) -> list[Paper]:
         return sorted(papers, key=lambda p: p.title.lower())
     # "relevance" — keep the original order from arXiv API
     return papers
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"arxiv-curator {__version__}")
+        raise typer.Exit()
+
+
+# ---------------------------------------------------------------------------
+# App-level callback (--version)
+# ---------------------------------------------------------------------------
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-v",
+        help="Show version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """arXiv paper search and curation CLI tool."""
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +159,7 @@ def search(
 
 @app.command()
 def suggest(
-    url: str = typer.Argument(..., help="GitHub awesome-list URL"),
+    url: str = typer.Argument(..., help="GitHub repository URL"),
     since: Optional[str] = typer.Option(
         None, "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
     ),
@@ -161,17 +191,14 @@ def suggest(
 
     # Fetch README to find existing papers
     existing: set[str] = set()
-    raw_url = _github_raw_readme_url(url)
-    if raw_url:
-        try:
-            resp = requests.get(raw_url, timeout=15)
-            if resp.ok:
-                existing = parse_awesome_readme(resp.text)
-                console.print(
-                    f"Found [bold]{len(existing)}[/bold] existing entries in README."
-                )
-        except requests.RequestException:
-            console.print("[yellow]Could not fetch README; skipping dedup.[/yellow]")
+    readme_text = fetch_readme_content(url)
+    if readme_text:
+        existing = parse_awesome_readme(readme_text)
+        console.print(
+            f"Found [bold]{len(existing)}[/bold] existing entries in README."
+        )
+    else:
+        console.print("[yellow]Could not fetch README; skipping dedup.[/yellow]")
 
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
@@ -179,13 +206,8 @@ def suggest(
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
-    # Deduplicate
-    new_papers = []
-    for p in papers:
-        arxiv_id_match = re.search(r"\d{4}\.\d{4,5}", p.arxiv_url)
-        arxiv_id = arxiv_id_match.group() if arxiv_id_match else ""
-        if p.title.lower() not in existing and arxiv_id not in existing:
-            new_papers.append(p)
+    # Deduplicate using shared helper
+    new_papers = filter_new_papers(papers, existing)
 
     if not new_papers:
         console.print("[yellow]No new papers found.[/yellow]")
@@ -361,7 +383,10 @@ def watch(
             for p in existing_papers:
                 existing_ids.add(p.get("arxiv_url", ""))
         except (json.JSONDecodeError, KeyError):
-            pass
+            console.print(
+                f"[yellow]Warning: {output_file} contains corrupt JSON. "
+                f"Starting fresh.[/yellow]"
+            )
 
     since_date = datetime.now(tz=timezone.utc) - timedelta(days=days)
     query = " AND ".join(resolved_keywords)
@@ -375,6 +400,7 @@ def watch(
 
     if new_papers:
         all_papers = existing_papers + [p.to_dict() for p in new_papers]
+        # Use plain print() to avoid Rich markup in JSON data
         output_file.write_text(
             json.dumps(all_papers, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -383,18 +409,6 @@ def watch(
         f"Found [bold green]{len(new_papers)}[/bold green] new papers "
         f"(total {len(existing_papers) + len(new_papers)} in {output_file})."
     )
-
-
-def _github_raw_readme_url(github_url: str) -> str | None:
-    """Convert a GitHub repo URL to a raw README URL."""
-    from urllib.parse import urlparse
-
-    parsed = urlparse(github_url)
-    path_parts = parsed.path.strip("/").split("/")
-    if len(path_parts) < 2:
-        return None
-    owner, repo = path_parts[0], path_parts[1]
-    return f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md"
 
 
 if __name__ == "__main__":

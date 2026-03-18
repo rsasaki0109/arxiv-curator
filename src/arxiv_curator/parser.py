@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse
 
+import requests
+
+from arxiv_curator.models import Paper
+
 
 def parse_awesome_url(github_url: str) -> list[str]:
     """Extract search keywords from an awesome-list repository URL.
@@ -85,3 +89,39 @@ def parse_awesome_readme(markdown_text: str) -> set[str]:
         identifiers.add(title.lower())
 
     return identifiers
+
+
+def fetch_readme_content(github_url: str) -> str | None:
+    """Fetch README content from a GitHub repository URL.
+
+    Tries the ``main`` branch first, then falls back to ``master``.
+    Returns the README text or ``None`` if neither branch works.
+    """
+    parsed = urlparse(github_url if "://" in github_url else f"https://{github_url}")
+    path_parts = parsed.path.strip("/").split("/")
+    if len(path_parts) < 2:
+        return None
+    owner, repo = path_parts[0], path_parts[1]
+
+    for branch in ("main", "master"):
+        raw_url = (
+            f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/README.md"
+        )
+        try:
+            resp = requests.get(raw_url, timeout=15)
+            if resp.ok:
+                return resp.text
+        except requests.RequestException:
+            continue
+    return None
+
+
+def filter_new_papers(papers: list[Paper], existing: set[str]) -> list[Paper]:
+    """Filter out papers that already exist in the set (by title or arxiv ID)."""
+    new_papers = []
+    for p in papers:
+        arxiv_id_match = re.search(r"\d{4}\.\d{4,5}", p.arxiv_url)
+        arxiv_id = arxiv_id_match.group() if arxiv_id_match else ""
+        if p.title.lower() not in existing and arxiv_id not in existing:
+            new_papers.append(p)
+    return new_papers

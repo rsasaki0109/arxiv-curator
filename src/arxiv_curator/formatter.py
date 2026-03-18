@@ -10,8 +10,8 @@ from arxiv_curator.models import EnrichedPaper, Paper
 
 
 def _is_enriched(papers: list[Paper]) -> bool:
-    """Check if the list contains EnrichedPaper instances."""
-    return len(papers) > 0 and isinstance(papers[0], EnrichedPaper)
+    """Check if all papers in the list are EnrichedPaper instances."""
+    return len(papers) > 0 and all(isinstance(p, EnrichedPaper) for p in papers)
 
 
 def format_as_table(papers: list[Paper]) -> Table:

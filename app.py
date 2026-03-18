@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta
 
 import streamlit as st
@@ -10,7 +9,12 @@ import streamlit as st
 from arxiv_curator.arxiv_api import search_papers
 from arxiv_curator.formatter import format_as_json, format_as_markdown
 from arxiv_curator.models import Paper
-from arxiv_curator.parser import parse_awesome_readme, parse_awesome_url
+from arxiv_curator.parser import (
+    fetch_readme_content,
+    filter_new_papers,
+    parse_awesome_readme,
+    parse_awesome_url,
+)
 
 st.set_page_config(page_title="arxiv-curator", page_icon=":books:", layout="wide")
 
@@ -36,26 +40,6 @@ def _papers_to_dataframe(papers: list[Paper]) -> list[dict]:
             }
         )
     return rows
-
-
-def _fetch_readme(github_url: str) -> str | None:
-    """Fetch README from a GitHub repo URL."""
-    import requests
-    from urllib.parse import urlparse
-
-    parsed = urlparse(github_url)
-    path_parts = parsed.path.strip("/").split("/")
-    if len(path_parts) < 2:
-        return None
-    owner, repo = path_parts[0], path_parts[1]
-    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md"
-    try:
-        resp = requests.get(raw_url, timeout=15)
-        if resp.ok:
-            return resp.text
-    except requests.RequestException:
-        pass
-    return None
 
 
 # --- Tabs ---
@@ -163,7 +147,7 @@ with tab_suggest:
                 # Fetch existing entries
                 existing: set[str] = set()
                 with st.spinner("Fetching README for deduplication..."):
-                    readme_text = _fetch_readme(awesome_url.strip())
+                    readme_text = fetch_readme_content(awesome_url.strip())
                     if readme_text:
                         existing = parse_awesome_readme(readme_text)
                         st.write(f"Found {len(existing)} existing entries in README.")
@@ -176,13 +160,8 @@ with tab_suggest:
                 with st.spinner("Searching arXiv..."):
                     papers = search_papers(query, max_results=suggest_max, since_date=since_dt)
 
-                # Deduplicate
-                new_papers = []
-                for p in papers:
-                    arxiv_id_match = re.search(r"\d{4}\.\d{4,5}", p.arxiv_url)
-                    arxiv_id = arxiv_id_match.group() if arxiv_id_match else ""
-                    if p.title.lower() not in existing and arxiv_id not in existing:
-                        new_papers.append(p)
+                # Deduplicate using shared helper
+                new_papers = filter_new_papers(papers, existing)
 
                 if not new_papers:
                     st.info("No new papers found.")

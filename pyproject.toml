@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [
     {name = "rsasaki0109"},
 ]
-keywords = ["arxiv", "paper", "search", "curation", "awesome-list"]
+keywords = ["arxiv", "paper", "search", "curation", "semantic-scholar", "citation", "paper-discovery"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",

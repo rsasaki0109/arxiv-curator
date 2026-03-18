@@ -1,6 +1,8 @@
 """CLI integration tests using typer.testing.CliRunner."""
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -63,14 +65,11 @@ def test_search_invalid_since_date():
 # -------------------------------------------------------------------
 
 
-@patch("arxiv_curator.cli.requests.get")
+@patch("arxiv_curator.cli.fetch_readme_content")
 @patch("arxiv_curator.cli.search_papers")
-def test_suggest_with_valid_url(mock_search, mock_get):
+def test_suggest_with_valid_url(mock_search, mock_fetch):
     mock_search.return_value = [_make_paper()]
-    mock_resp = MagicMock()
-    mock_resp.ok = True
-    mock_resp.text = "## Papers\nNothing here yet."
-    mock_get.return_value = mock_resp
+    mock_fetch.return_value = "## Papers\nNothing here yet."
 
     result = runner.invoke(
         app, ["suggest", "https://github.com/user/awesome-SLAM"]
@@ -109,3 +108,54 @@ def test_enrich_invalid_since_date():
     result = runner.invoke(app, ["enrich", "SLAM", "--since", "xyz"])
     assert result.exit_code == 1
     assert "Invalid date format" in result.output
+
+
+# -------------------------------------------------------------------
+# watch command
+# -------------------------------------------------------------------
+
+
+@patch("arxiv_curator.cli.search_papers")
+def test_watch_creates_json_file(mock_search, tmp_path):
+    mock_search.return_value = [_make_paper()]
+    result = runner.invoke(
+        app, ["watch", "SLAM", "--output-dir", str(tmp_path), "--days", "7"]
+    )
+    assert result.exit_code == 0
+    assert "1" in result.output  # "Found 1 new papers"
+    # Verify JSON file was created
+    json_files = list(tmp_path.glob("watch_*.json"))
+    assert len(json_files) == 1
+    data = json.loads(json_files[0].read_text(encoding="utf-8"))
+    assert len(data) == 1
+    assert data[0]["title"] == "Test Paper"
+
+
+@patch("arxiv_curator.cli.search_papers")
+def test_watch_with_from_awesome(mock_search, tmp_path):
+    mock_search.return_value = [_make_paper()]
+    result = runner.invoke(
+        app,
+        [
+            "watch",
+            "--from-awesome",
+            "https://github.com/user/awesome-SLAM",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "Extracted keywords" in result.output
+    json_files = list(tmp_path.glob("watch_*.json"))
+    assert len(json_files) == 1
+
+
+# -------------------------------------------------------------------
+# version flag
+# -------------------------------------------------------------------
+
+
+def test_version_flag():
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "arxiv-curator" in result.output

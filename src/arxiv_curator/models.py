@@ -91,22 +91,3 @@ class EnrichedPaper(Paper):
         if extras:
             return f"{base} | {' | '.join(extras)}"
         return base
-
-
-# JSON Schema for interoperability with github-curator
-PAPER_JSON_SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Paper",
-    "description": "arXiv paper metadata (shared with github-curator)",
-    "type": "object",
-    "properties": {
-        "title": {"type": "string"},
-        "authors": {"type": "array", "items": {"type": "string"}},
-        "abstract": {"type": "string"},
-        "published": {"type": "string", "format": "date-time"},
-        "arxiv_url": {"type": "string", "format": "uri"},
-        "pdf_url": {"type": "string", "format": "uri"},
-        "categories": {"type": "array", "items": {"type": "string"}},
-    },
-    "required": ["title", "authors", "abstract", "published", "arxiv_url", "pdf_url"],
-}
