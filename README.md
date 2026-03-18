@@ -33,6 +33,25 @@ Found 329 existing entries in README.
 | 定期的に新着をウォッチしたい | `watch` コマンド + GitHub Actions で週次自動チェック |
 | 結果を awesome-list 形式でそのまま貼りたい | `--format markdown` で awesome-list 互換の Markdown 出力 |
 
+### arXiv API でできること・できないこと
+
+このツールは [arXiv API](https://info.arxiv.org/help/api/index.html) を利用しています。arXiv API の仕様上、以下の制限があります。
+
+| | 内容 |
+|---|---|
+| :white_check_mark: できる | キーワード検索（タイトル・要旨・著者） |
+| :white_check_mark: できる | カテゴリ指定（cs.CV, cs.RO, cs.AI など） |
+| :white_check_mark: できる | 日付範囲での絞り込み |
+| :white_check_mark: できる | 論文メタデータ取得（タイトル・著者・要旨・PDF リンク） |
+| :x: できない | **引用数の取得**（arXiv API は引用情報を持たない。Semantic Scholar API 等が必要） |
+| :x: できない | **コード実装の有無**（Papers with Code API 等が必要） |
+| :x: できない | **学会・ジャーナル情報**（arXiv はプレプリントサーバのため、採択先情報は含まれない） |
+| :x: できない | **全文検索**（タイトルと要旨のみ。本文中のキーワードでは検索できない） |
+| :x: できない | **セマンティック検索**（キーワード完全一致ベース。意味的に近い論文の検索は不可） |
+
+> 引用数・コード有無・学会情報は将来的に Semantic Scholar API や Papers with Code API との連携で対応予定です。
+> 関連: [github-curator](https://github.com/rsasaki0109/github-curator) で GitHub リポジトリ側の情報（スター数・言語・更新日）は取得できます。
+
 ### インストール
 
 ```bash
@@ -143,6 +162,25 @@ It extracts keywords from the repository name, searches arXiv, and suggests pape
 | Awesome-list output | `--format markdown` for direct copy-paste |
 
 Works alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks).
+
+### arXiv API: What It Can and Cannot Do
+
+This tool uses the [arXiv API](https://info.arxiv.org/help/api/index.html). Due to API limitations:
+
+| | Description |
+|---|---|
+| :white_check_mark: Can | Keyword search (title, abstract, authors) |
+| :white_check_mark: Can | Category filtering (cs.CV, cs.RO, cs.AI, etc.) |
+| :white_check_mark: Can | Date range filtering |
+| :white_check_mark: Can | Paper metadata (title, authors, abstract, PDF link) |
+| :x: Cannot | **Citation counts** (arXiv API has no citation data; needs Semantic Scholar API) |
+| :x: Cannot | **Code availability** (needs Papers with Code API) |
+| :x: Cannot | **Conference/journal info** (arXiv is a preprint server; no acceptance info) |
+| :x: Cannot | **Full-text search** (title and abstract only) |
+| :x: Cannot | **Semantic search** (keyword-based matching only; no similarity search) |
+
+> Citation counts, code availability, and venue info are planned via Semantic Scholar / Papers with Code API integration.
+> Related: [github-curator](https://github.com/rsasaki0109/github-curator) can fetch GitHub repository info (stars, language, last updated).
 
 ### Installation
 
