@@ -1,0 +1,25 @@
+name: Weekly arXiv Search
+
+on:
+  schedule:
+    # Run every Monday at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install arxiv-curator
+        run: pip install arxiv-curator
+
+      - name: Search and export
+        run: |
+          arxiv-curator search SLAM LiDAR --since "$(date -d '7 days ago' +%Y-%m-%d)" --format markdown
