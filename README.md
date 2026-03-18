@@ -154,6 +154,26 @@ Found 329 existing entries in README.
 ...
 ```
 
+### github-curator とのパイプライン
+
+[github-curator](https://github.com/rsasaki0109/github-curator) と組み合わせることで、論文検索からリポジトリのヘルスチェックまで一気通貫で実行できます。
+
+#### 論文からGitHubリポジトリを抽出してチェック
+
+```bash
+# arXiv論文を検索し、アブストラクトからGitHub URLを抽出、リポジトリの健全性をチェック
+./examples/pipeline.sh "transformer SLAM" --since 2025-01-01
+```
+
+#### awesome-list の新着提案＋既存リポジトリのヘルスチェック
+
+```bash
+# 新着論文の提案と、既存リポジトリのリンク切れ・健全性チェックを同時実行
+./examples/suggest_and_check.sh https://github.com/xxx/Awesome-SLAM
+```
+
+詳細は [examples/](./examples/) を参照してください。
+
 ---
 
 ## English
@@ -292,6 +312,26 @@ Found 329 existing entries in README.
 - **[SceneVGGT: VGGT-based online 3D semantic SLAM...](http://arxiv.org/abs/2602.15899v2)** - Anna Gelencsér-Horváth et al. (2026-02-12)
 ...
 ```
+
+### Pipeline with github-curator
+
+Combine with [github-curator](https://github.com/rsasaki0109/github-curator) to go from paper search to repository health checks in one flow.
+
+#### Extract GitHub repos from papers and check them
+
+```bash
+# Search arXiv, extract GitHub URLs from abstracts, and check repo health
+./examples/pipeline.sh "transformer SLAM" --since 2025-01-01
+```
+
+#### Suggest new papers + health-check existing repos
+
+```bash
+# Suggest new papers for an awesome list and check existing repo health/links
+./examples/suggest_and_check.sh https://github.com/xxx/Awesome-SLAM
+```
+
+See [examples/](./examples/) for full scripts.
 
 ### Data Format
 
