@@ -4,11 +4,11 @@
 [![Python](https://img.shields.io/pypi/pyversions/arxiv-curator)](https://pypi.org/project/arxiv-curator/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-awesome-xxx リストに載せるべき新着論文を arXiv から自動で見つける CLI ツールです。
-リポジトリ名からキーワードを抽出し、既存エントリとの重複を除いた上で新着論文を提案します。
+arXiv の論文をキーワードで検索し、Markdown 形式で出力する CLI ツールです。
+GitHub 上の論文リストの URL を渡すと、リポジトリ名からキーワードを自動抽出し、リストにまだ載っていない新着論文を提案します。
 
 ```bash
-# awesome-list の URL を渡すだけ。リポ名からキーワードを自動抽出し、
+# 論文リストの URL を渡すだけ。リポ名からキーワードを自動抽出し、
 # 既存 329 件と重複チェックした上で、新着論文だけを提案してくれる。
 $ arxiv-curator suggest https://github.com/KwanWaiPang/Awesome-Transformer-based-SLAM
 
@@ -28,21 +28,21 @@ Found 329 existing entries in README.
 | こんな課題 | arxiv-curator の解決策 |
 |---|---|
 | arXiv の新着論文を毎日チェックする時間がない | `search` コマンドでキーワード検索を一発実行 |
-| awesome-list に追加すべき論文を見逃す | `suggest` コマンドで既存リストと重複しない新着だけを提案 |
+| GitHub 上の論文リストに追加すべき論文を見逃す | `suggest` コマンドで既存リストと重複しない新着だけを提案 |
 | 特定カテゴリ (cs.CV, cs.RO) に絞りたい | `--category` フィルタで絞り込み |
 | 定期的に新着をウォッチしたい | `watch` コマンド + GitHub Actions で週次自動チェック |
-| 結果を awesome-list 形式でそのまま貼りたい | `--format markdown` で awesome-list 互換の Markdown 出力 |
+| 結果を Markdown でそのまま貼りたい | `--format markdown` で論文リスト互換の Markdown 出力 |
 
 ### arXiv API を直接使う場合との違い
 
-arXiv API は公開されていて誰でも使えますが、awesome-list のメンテナンスに使うにはそのままだと手間がかかります。
+arXiv API は公開されていて誰でも使えますが、論文リストのメンテナンスに使うにはそのままだと手間がかかります。
 arxiv-curator はその間を埋めるツールです。
 
 | やりたいこと | arXiv API を直接使う場合 | arxiv-curator |
 |---|---|---|
 | 論文を検索する | API の Atom XML をパースするコードを書く | `arxiv-curator search transformer SLAM` |
-| awesome-list の新着を探す | キーワードを自分で考え、既存リストと手動で突き合わせる | `arxiv-curator suggest <awesome-list URL>` でリポ名からキーワード自動抽出＋重複除去 |
-| 結果を Markdown で貼る | 自分でフォーマットを整形 | `--format markdown` で awesome-list 互換出力 |
+| 論文リストの新着を探す | キーワードを自分で考え、既存リストと手動で突き合わせる | `arxiv-curator suggest <論文リストの URL>` でリポ名からキーワード自動抽出＋重複除去 |
+| 結果を Markdown で貼る | 自分でフォーマットを整形 | `--format markdown` で論文リスト互換出力 |
 | 定期的にチェックする | cron + スクリプトを自作 | `watch` コマンド + GitHub Actions テンプレート付き |
 | カテゴリで絞る | クエリ構文を調べて `cat:cs.CV` を組み立てる | `--category cs.CV` |
 | 結果を JSON で保存 | レスポンスの XML→JSON 変換を実装 | `--format json` / `export` コマンド |
@@ -101,10 +101,11 @@ arxiv-curator search transformer SLAM --since 2025-01-01
 arxiv-curator search "visual odometry" --format markdown --max-results 10
 ```
 
-#### awesome-list への新着論文提案
+#### 論文リストへの新着論文提案
 
 ```bash
-# awesome-list リポジトリの URL を指定して、新着論文を提案
+# GitHub 上の論文リストの URL を指定して、新着論文を提案
+# リポジトリの README に載っている論文と重複しないものだけを提案します
 arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 
 # 日付フィルタ付き
@@ -156,7 +157,7 @@ Found 3 papers.
 # cs.CV カテゴリの論文のみ表示されます
 ```
 
-#### awesome-list への新着論文提案
+#### 論文リストへの新着論文提案
 
 ```
 $ arxiv-curator suggest https://github.com/KwanWaiPang/Awesome-Transformer-based-SLAM --since 2025-01-01 --max-results 5 --format markdown
@@ -183,7 +184,7 @@ Found 329 existing entries in README.
 ./examples/pipeline.sh "transformer SLAM" --since 2025-01-01
 ```
 
-#### awesome-list の新着提案＋既存リポジトリのヘルスチェック
+#### 論文リストの新着提案＋既存リポジトリのヘルスチェック
 
 ```bash
 # 新着論文の提案と、既存リポジトリのリンク切れ・健全性チェックを同時実行
@@ -198,8 +199,8 @@ Found 329 existing entries in README.
 
 ### Overview
 
-A CLI tool that finds new arXiv papers for your awesome-xxx list.
-It extracts keywords from the repository name, searches arXiv, and suggests papers not already in your list.
+A CLI tool that searches arXiv for papers by keyword and outputs results in Markdown format.
+Pass a URL of a GitHub repository containing a paper list (Markdown with paper links), and it automatically extracts keywords from the repository name, then suggests new papers not already in the list.
 
 | Feature | Description |
 |---|---|
@@ -207,20 +208,20 @@ It extracts keywords from the repository name, searches arXiv, and suggests pape
 | New paper suggestions | `suggest` auto-extracts keywords from repo name, deduplicates against existing entries |
 | Category filter | `--category cs.CV` etc. |
 | Periodic watch | `watch` command + GitHub Actions for weekly checks |
-| Awesome-list output | `--format markdown` for direct copy-paste |
+| Markdown output | `--format markdown` for direct copy-paste into paper lists |
 | Semantic Scholar enrichment | `enrich` command or `--enrich` flag adds citation counts, venue, and open access info |
 
 Works alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks).
 
 ### How This Differs from Using the arXiv API Directly
 
-The arXiv API is publicly available, but using it for awesome-list maintenance requires extra work. arxiv-curator bridges that gap.
+The arXiv API is publicly available, but using it to maintain a curated paper list on GitHub requires extra work. arxiv-curator bridges that gap.
 
 | Task | Raw arXiv API | arxiv-curator |
 |---|---|---|
 | Search papers | Write code to parse Atom XML | `arxiv-curator search transformer SLAM` |
 | Find new papers for a list | Manually decide keywords, cross-check against existing entries | `arxiv-curator suggest <URL>` — auto-extracts keywords from repo name + deduplicates |
-| Format as Markdown | Build your own formatter | `--format markdown` (awesome-list compatible) |
+| Format as Markdown | Build your own formatter | `--format markdown` (paper list compatible) |
 | Run periodic checks | Write cron + custom script | `watch` command + GitHub Actions template included |
 | Filter by category | Look up query syntax, build `cat:cs.CV` | `--category cs.CV` |
 | Save as JSON | Implement XML-to-JSON conversion | `--format json` / `export` command |
@@ -279,10 +280,12 @@ arxiv-curator search transformer SLAM --since 2025-01-01
 arxiv-curator search "visual odometry" --format markdown --max-results 10
 ```
 
-#### Suggest new papers for an awesome-list
+#### Suggest new papers for a paper list
 
 ```bash
-# Provide an awesome-list repo URL to get suggestions for new papers
+# Pass a GitHub repo URL that has a README listing papers.
+# Keywords are extracted from the repo name, and only papers
+# not already in the README are suggested.
 arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 
 # With date filter
@@ -334,7 +337,7 @@ Found 3 papers.
 # Only papers in cs.CV category are shown
 ```
 
-#### Suggest new papers for an awesome-list
+#### Suggest new papers for a paper list
 
 ```
 $ arxiv-curator suggest https://github.com/KwanWaiPang/Awesome-Transformer-based-SLAM --since 2025-01-01 --max-results 5 --format markdown
@@ -364,7 +367,7 @@ Combine with [github-curator](https://github.com/rsasaki0109/github-curator) to 
 #### Suggest new papers + health-check existing repos
 
 ```bash
-# Suggest new papers for an awesome list and check existing repo health/links
+# Suggest new papers and check existing repo health/links
 ./examples/suggest_and_check.sh https://github.com/xxx/Awesome-SLAM
 ```
 
