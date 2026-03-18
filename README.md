@@ -33,24 +33,34 @@ Found 329 existing entries in README.
 | 定期的に新着をウォッチしたい | `watch` コマンド + GitHub Actions で週次自動チェック |
 | 結果を awesome-list 形式でそのまま貼りたい | `--format markdown` で awesome-list 互換の Markdown 出力 |
 
-### arXiv API でできること・できないこと
+### arXiv API を直接使う場合との違い
 
-このツールは [arXiv API](https://info.arxiv.org/help/api/index.html) を利用しています。arXiv API の仕様上、以下の制限があります。
+arXiv API は公開されていて誰でも使えますが、awesome-list のメンテナンスに使うにはそのままだと手間がかかります。
+arxiv-curator はその間を埋めるツールです。
 
-| | 内容 |
-|---|---|
-| :white_check_mark: できる | キーワード検索（タイトル・要旨・著者） |
-| :white_check_mark: できる | カテゴリ指定（cs.CV, cs.RO, cs.AI など） |
-| :white_check_mark: できる | 日付範囲での絞り込み |
-| :white_check_mark: できる | 論文メタデータ取得（タイトル・著者・要旨・PDF リンク） |
-| :x: できない | **引用数の取得**（arXiv API は引用情報を持たない。Semantic Scholar API 等が必要） |
-| :x: できない | **コード実装の有無**（Papers with Code API 等が必要） |
-| :x: できない | **学会・ジャーナル情報**（arXiv はプレプリントサーバのため、採択先情報は含まれない） |
-| :x: できない | **全文検索**（タイトルと要旨のみ。本文中のキーワードでは検索できない） |
-| :x: できない | **セマンティック検索**（キーワード完全一致ベース。意味的に近い論文の検索は不可） |
+| やりたいこと | arXiv API を直接使う場合 | arxiv-curator |
+|---|---|---|
+| 論文を検索する | API の Atom XML をパースするコードを書く | `arxiv-curator search transformer SLAM` |
+| awesome-list の新着を探す | キーワードを自分で考え、既存リストと手動で突き合わせる | `arxiv-curator suggest <awesome-list URL>` でリポ名からキーワード自動抽出＋重複除去 |
+| 結果を Markdown で貼る | 自分でフォーマットを整形 | `--format markdown` で awesome-list 互換出力 |
+| 定期的にチェックする | cron + スクリプトを自作 | `watch` コマンド + GitHub Actions テンプレート付き |
+| カテゴリで絞る | クエリ構文を調べて `cat:cs.CV` を組み立てる | `--category cs.CV` |
+| 結果を JSON で保存 | レスポンスの XML→JSON 変換を実装 | `--format json` / `export` コマンド |
 
-> 引用数・コード有無・学会情報は将来的に Semantic Scholar API や Papers with Code API との連携で対応予定です。
-> 関連: [github-curator](https://github.com/rsasaki0109/github-curator) で GitHub リポジトリ側の情報（スター数・言語・更新日）は取得できます。
+### arXiv API の制限事項
+
+arXiv API の仕様上、以下は取得できません。
+
+| 取得できない情報 | 理由 | 代替手段 |
+|---|---|---|
+| 引用数 | arXiv API は引用情報を持たない | Semantic Scholar API |
+| コード実装の有無 | arXiv にはコードリンク情報がない | Papers with Code API |
+| 学会・ジャーナル情報 | arXiv はプレプリントサーバ | Semantic Scholar API |
+| 全文検索 | タイトルと要旨のみ検索可能 | — |
+| セマンティック検索 | キーワード一致ベースのみ | Semantic Scholar API |
+
+> これらは将来的に Semantic Scholar API / Papers with Code API との連携で対応予定です。
+> GitHub リポジトリ側の情報（スター数・言語・更新日）は [github-curator](https://github.com/rsasaki0109/github-curator) で取得できます。
 
 ### インストール
 
@@ -163,24 +173,33 @@ It extracts keywords from the repository name, searches arXiv, and suggests pape
 
 Works alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks).
 
-### arXiv API: What It Can and Cannot Do
+### How This Differs from Using the arXiv API Directly
 
-This tool uses the [arXiv API](https://info.arxiv.org/help/api/index.html). Due to API limitations:
+The arXiv API is publicly available, but using it for awesome-list maintenance requires extra work. arxiv-curator bridges that gap.
 
-| | Description |
-|---|---|
-| :white_check_mark: Can | Keyword search (title, abstract, authors) |
-| :white_check_mark: Can | Category filtering (cs.CV, cs.RO, cs.AI, etc.) |
-| :white_check_mark: Can | Date range filtering |
-| :white_check_mark: Can | Paper metadata (title, authors, abstract, PDF link) |
-| :x: Cannot | **Citation counts** (arXiv API has no citation data; needs Semantic Scholar API) |
-| :x: Cannot | **Code availability** (needs Papers with Code API) |
-| :x: Cannot | **Conference/journal info** (arXiv is a preprint server; no acceptance info) |
-| :x: Cannot | **Full-text search** (title and abstract only) |
-| :x: Cannot | **Semantic search** (keyword-based matching only; no similarity search) |
+| Task | Raw arXiv API | arxiv-curator |
+|---|---|---|
+| Search papers | Write code to parse Atom XML | `arxiv-curator search transformer SLAM` |
+| Find new papers for a list | Manually decide keywords, cross-check against existing entries | `arxiv-curator suggest <URL>` — auto-extracts keywords from repo name + deduplicates |
+| Format as Markdown | Build your own formatter | `--format markdown` (awesome-list compatible) |
+| Run periodic checks | Write cron + custom script | `watch` command + GitHub Actions template included |
+| Filter by category | Look up query syntax, build `cat:cs.CV` | `--category cs.CV` |
+| Save as JSON | Implement XML-to-JSON conversion | `--format json` / `export` command |
 
-> Citation counts, code availability, and venue info are planned via Semantic Scholar / Papers with Code API integration.
-> Related: [github-curator](https://github.com/rsasaki0109/github-curator) can fetch GitHub repository info (stars, language, last updated).
+### arXiv API Limitations
+
+The following cannot be retrieved due to arXiv API constraints:
+
+| Not available | Reason | Alternative |
+|---|---|---|
+| Citation counts | arXiv API has no citation data | Semantic Scholar API |
+| Code availability | No code link info in arXiv | Papers with Code API |
+| Conference/journal info | arXiv is a preprint server | Semantic Scholar API |
+| Full-text search | Title and abstract only | — |
+| Semantic search | Keyword matching only | Semantic Scholar API |
+
+> These are planned via Semantic Scholar / Papers with Code API integration.
+> GitHub repository info (stars, language, last updated) is available via [github-curator](https://github.com/rsasaki0109/github-curator).
 
 ### Installation
 
