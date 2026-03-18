@@ -4,12 +4,8 @@
 [![Python](https://img.shields.io/pypi/pyversions/arxiv-curator)](https://pypi.org/project/arxiv-curator/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**awesome-list の論文、まだ手動で探してますか？**
-
-awesome-xxx リストのメンテナンスで一番大変なのは「新しい論文を見逃さないこと」。
-arXiv を毎日チェックして、既存リストと被ってないか確認して、Markdown に追記して…。
-
-**arxiv-curator はこれを自動化します。**
+awesome-xxx リストに載せるべき新着論文を arXiv から自動で見つける CLI ツールです。
+リポジトリ名からキーワードを抽出し、既存エントリとの重複を除いた上で新着論文を提案します。
 
 ```bash
 # awesome-list の URL を渡すだけ。リポ名からキーワードを自動抽出し、
@@ -21,7 +17,7 @@ Found 329 existing entries in README.
 5 new papers (filtered 0 duplicates).
 ```
 
-awesome-list キュレーターのための CLI ツール。姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator)（GitHub リポジトリの星数更新・リンク切れチェック）と組み合わせると、リストのメンテナンスがほぼ全自動になります。
+姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator)（GitHub リポジトリの星数更新・リンク切れチェック）と組み合わせて使えます。
 
 ---
 
@@ -135,19 +131,18 @@ Found 329 existing entries in README.
 
 ### Overview
 
-**Still manually checking arXiv for your awesome-list?**
+A CLI tool that finds new arXiv papers for your awesome-xxx list.
+It extracts keywords from the repository name, searches arXiv, and suggests papers not already in your list.
 
-The hardest part of maintaining an awesome-xxx list is keeping up with new papers. arxiv-curator automates this:
-
-| Problem | Solution |
+| Feature | Description |
 |---|---|
-| No time to check arXiv daily | `search` command with keyword + date filters |
-| Missing papers that should be in your list | `suggest` auto-extracts keywords from repo name, deduplicates against existing entries |
-| Need only specific categories (cs.CV, cs.RO) | `--category` filter |
-| Want weekly automated checks | `watch` command + GitHub Actions |
-| Need results in awesome-list format | `--format markdown` outputs awesome-list compatible Markdown |
+| Keyword search | `search` command with date and category filters |
+| New paper suggestions | `suggest` auto-extracts keywords from repo name, deduplicates against existing entries |
+| Category filter | `--category cs.CV` etc. |
+| Periodic watch | `watch` command + GitHub Actions for weekly checks |
+| Awesome-list output | `--format markdown` for direct copy-paste |
 
-Use alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks) for near-fully-automated list maintenance.
+Works alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks).
 
 ### Installation
 
