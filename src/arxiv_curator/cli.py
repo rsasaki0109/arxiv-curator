@@ -14,7 +14,9 @@ from rich.console import Console
 
 from arxiv_curator.arxiv_api import search_papers
 from arxiv_curator.formatter import format_as_json, format_as_markdown, format_as_table
+from arxiv_curator.models import Paper
 from arxiv_curator.parser import parse_awesome_readme, parse_awesome_url
+from arxiv_curator.semantic_scholar import enrich_papers
 
 app = typer.Typer(
     name="arxiv-curator",
@@ -22,6 +24,16 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+
+
+def _sort_papers(papers: list[Paper], sort: str) -> list[Paper]:
+    """Sort papers by the given criterion."""
+    if sort == "date":
+        return sorted(papers, key=lambda p: p.published, reverse=True)
+    elif sort == "title":
+        return sorted(papers, key=lambda p: p.title.lower())
+    # "relevance" — keep the original order from arXiv API
+    return papers
 
 
 @app.command()
@@ -36,6 +48,9 @@ def search(
     ),
     category: Optional[str] = typer.Option(
         None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+    sort: str = typer.Option(
+        "relevance", "--sort", help="Sort by: relevance, date, title"
     ),
 ) -> None:
     """Search arXiv for papers matching keywords."""
@@ -53,6 +68,8 @@ def search(
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
         raise typer.Exit()
+
+    papers = _sort_papers(papers, sort)
 
     console.print(f"Found [bold green]{len(papers)}[/bold green] papers.\n")
 
@@ -76,6 +93,12 @@ def suggest(
     max_results: int = typer.Option(20, "--max-results", "-n", help="Max results"),
     fmt: str = typer.Option(
         "table", "--format", "-f", help="Output format: table, json, markdown"
+    ),
+    sort: str = typer.Option(
+        "relevance", "--sort", help="Sort by: relevance, date, title"
+    ),
+    append_to: Optional[Path] = typer.Option(
+        None, "--append-to", help="Append markdown entries to the specified file"
     ),
 ) -> None:
     """Suggest new arXiv papers for an awesome-list repository.
@@ -124,6 +147,8 @@ def suggest(
         console.print("[yellow]No new papers found.[/yellow]")
         raise typer.Exit()
 
+    new_papers = _sort_papers(new_papers, sort)
+
     console.print(
         f"[bold green]{len(new_papers)}[/bold green] new papers "
         f"(filtered {len(papers) - len(new_papers)} duplicates).\n"
@@ -138,6 +163,24 @@ def suggest(
     else:
         console.print(f"[red]Unknown format: {fmt}[/red]")
         raise typer.Exit(1)
+
+    # Append to file if requested
+    if append_to:
+        md_lines = [p.to_markdown() for p in new_papers]
+        md_content = "\n".join(md_lines) + "\n"
+        with open(append_to, "a", encoding="utf-8") as f:
+            f.write(md_content)
+        console.print(
+            f"\nAppended [bold green]{len(new_papers)}[/bold green] entries to {append_to}"
+        )
+
+    # Summary hint
+    if fmt != "markdown" and not append_to:
+        console.print(
+            f"\n[dim]Found {len(new_papers)} new papers not in the awesome list. "
+            "Run with --format markdown to get copy-paste ready output, "
+            "or --append-to FILE to save them.[/dim]"
+        )
 
 
 @app.command()
@@ -188,7 +231,7 @@ def export(
 
 @app.command()
 def watch(
-    keywords: list[str] = typer.Argument(..., help="Search keywords"),
+    keywords: Optional[list[str]] = typer.Argument(None, help="Search keywords"),
     output_dir: Path = typer.Option(
         ".", "--output-dir", "-o", help="Directory to store results JSON"
     ),
@@ -197,15 +240,40 @@ def watch(
     category: Optional[str] = typer.Option(
         None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
     ),
+    from_awesome: Optional[str] = typer.Option(
+        None,
+        "--from-awesome",
+        help="Extract keywords from an awesome-list GitHub URL",
+    ),
 ) -> None:
     """Watch arXiv for new papers (designed for periodic runs).
 
     Searches for papers from the last N days, deduplicates against
     previously seen results, and appends new papers to a JSON file.
+
+    You can provide keywords directly or use --from-awesome to extract
+    them from a GitHub awesome-list URL.
     """
+    # Resolve keywords from --from-awesome or positional args
+    resolved_keywords: list[str]
+    if from_awesome:
+        resolved_keywords = parse_awesome_url(from_awesome)
+        if not resolved_keywords:
+            console.print("[red]Could not extract keywords from URL.[/red]")
+            raise typer.Exit(1)
+        console.print(
+            f"Extracted keywords from awesome list: "
+            f"[bold]{', '.join(resolved_keywords)}[/bold]"
+        )
+    elif keywords:
+        resolved_keywords = keywords
+    else:
+        console.print("[red]Provide keywords or --from-awesome URL.[/red]")
+        raise typer.Exit(1)
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = "_".join(keywords).replace(" ", "_").lower()
+    safe_name = "_".join(resolved_keywords).replace(" ", "_").lower()
     output_file = output_dir / f"watch_{safe_name}.json"
 
     # Load existing papers
@@ -220,7 +288,7 @@ def watch(
             pass
 
     since_date = datetime.now(tz=timezone.utc) - timedelta(days=days)
-    query = " AND ".join(keywords)
+    query = " AND ".join(resolved_keywords)
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
