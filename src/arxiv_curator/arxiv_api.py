@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import urllib.error
 from datetime import datetime, timezone
 
 import arxiv
 
 from arxiv_curator.models import Paper
+
+logger = logging.getLogger(__name__)
 
 
 def search_papers(
@@ -28,6 +32,11 @@ def search_papers(
     Returns
     -------
     list[Paper]
+
+    Raises
+    ------
+    RuntimeError
+        If the arXiv API is unreachable or returns an unexpected error.
     """
     client = arxiv.Client()
     search = arxiv.Search(
@@ -37,8 +46,20 @@ def search_papers(
         sort_order=arxiv.SortOrder.Descending,
     )
 
+    try:
+        results = list(client.results(search))
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Failed to reach arXiv API: {exc}") from exc
+    except ConnectionError as exc:
+        raise RuntimeError(f"Connection error while contacting arXiv: {exc}") from exc
+    except arxiv.UnexpectedEmptyPageError as exc:
+        logger.warning("arXiv returned an empty page: %s", exc)
+        return []
+    except arxiv.HTTPError as exc:
+        raise RuntimeError(f"arXiv API HTTP error: {exc}") from exc
+
     papers: list[Paper] = []
-    for result in client.results(search):
+    for result in results:
         published = result.published
         if since_date and published < since_date.replace(tzinfo=timezone.utc):
             continue

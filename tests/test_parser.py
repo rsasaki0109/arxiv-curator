@@ -28,6 +28,24 @@ class TestParseAwesomeUrl:
         assert "point" in lower
         assert "cloud" in lower
 
+    def test_3d_token_not_split(self):
+        url = "https://github.com/user/awesome-3D-reconstruction"
+        keywords = parse_awesome_url(url)
+        assert "3D" in keywords
+
+    def test_git_suffix_stripped(self):
+        url = "https://github.com/user/awesome-SLAM.git"
+        keywords = parse_awesome_url(url)
+        lower = [k.lower() for k in keywords]
+        assert "slam" in lower
+        assert "git" not in lower
+
+    def test_no_scheme_url(self):
+        url = "github.com/user/awesome-SLAM"
+        keywords = parse_awesome_url(url)
+        lower = [k.lower() for k in keywords]
+        assert "slam" in lower
+
     def test_invalid_url_returns_empty(self):
         assert parse_awesome_url("https://github.com/") == []
         assert parse_awesome_url("not-a-url") == []

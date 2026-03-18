@@ -14,12 +14,20 @@ def parse_awesome_url(github_url: str) -> list[str]:
     >>> parse_awesome_url("https://github.com/xxx/Awesome-Transformer-based-SLAM")
     ['transformer', 'SLAM']
     """
+    # Handle no-scheme URLs (e.g. "github.com/org/repo")
+    if "://" not in github_url:
+        github_url = "https://" + github_url
+
     parsed = urlparse(github_url)
     path_parts = parsed.path.strip("/").split("/")
     if len(path_parts) < 2:
         return []
 
     repo_name = path_parts[1]
+
+    # Strip .git suffix
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
 
     # Remove common prefixes/suffixes
     name = repo_name
@@ -32,11 +40,17 @@ def parse_awesome_url(github_url: str) -> list[str]:
 
     # Split on hyphens, underscores, and camelCase boundaries
     tokens = re.split(r"[-_]", name)
-    # Further split camelCase
+    # Further split camelCase — but only for tokens long enough to be
+    # actual camelCase words.  Short alphanumeric tokens like "3D" or
+    # "V2" are kept intact.
     expanded: list[str] = []
     for token in tokens:
-        parts = re.findall(r"[A-Z]+[a-z]*|[a-z]+|[A-Z]+", token)
-        expanded.extend(parts if parts else [token])
+        if len(token) <= 3:
+            # Keep short tokens (e.g. "3D", "V2", "LLM") as-is
+            expanded.append(token)
+        else:
+            parts = re.findall(r"[A-Z]+[a-z]*|[a-z]+|[A-Z]+", token)
+            expanded.extend(parts if parts else [token])
 
     # Filter out noise words
     stop_words = {

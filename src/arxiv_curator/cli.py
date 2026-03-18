@@ -26,6 +26,48 @@ app = typer.Typer(
 console = Console()
 
 
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_since(since: str | None) -> datetime | None:
+    """Parse a ``--since`` date string, or exit with a friendly message."""
+    if since is None:
+        return None
+    try:
+        return datetime.fromisoformat(since)
+    except ValueError:
+        console.print(
+            f"[red]Invalid date format: '{since}'. Use YYYY-MM-DD.[/red]"
+        )
+        raise typer.Exit(1)
+
+
+def _filter_category(papers: list[Paper], category: str | None) -> list[Paper]:
+    """Filter papers by arXiv category if given."""
+    if category:
+        return [p for p in papers if category in p.categories]
+    return papers
+
+
+def _output_papers(
+    papers: list[Paper],
+    fmt: str,
+    out_console: Console,
+) -> None:
+    """Render *papers* to *out_console* in the requested format."""
+    if fmt == "table":
+        out_console.print(format_as_table(papers))
+    elif fmt == "json":
+        out_console.print(format_as_json(papers))
+    elif fmt == "markdown":
+        out_console.print(format_as_markdown(papers))
+    else:
+        out_console.print(f"[red]Unknown format: {fmt}[/red]")
+        raise typer.Exit(1)
+
+
 def _sort_papers(papers: list[Paper], sort: str) -> list[Paper]:
     """Sort papers by the given criterion."""
     if sort == "date":
@@ -34,6 +76,11 @@ def _sort_papers(papers: list[Paper], sort: str) -> list[Paper]:
         return sorted(papers, key=lambda p: p.title.lower())
     # "relevance" — keep the original order from arXiv API
     return papers
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
 
 
 @app.command()
@@ -58,15 +105,12 @@ def search(
 ) -> None:
     """Search arXiv for papers matching keywords."""
     query = " AND ".join(keywords)
-    since_date = None
-    if since:
-        since_date = datetime.fromisoformat(since)
+    since_date = _parse_since(since)
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
-    if category:
-        papers = [p for p in papers if category in p.categories]
+    papers = _filter_category(papers, category)
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
@@ -80,15 +124,7 @@ def search(
         with console.status("Enriching with Semantic Scholar..."):
             papers = enrich_papers(papers)
 
-    if fmt == "table":
-        console.print(format_as_table(papers))
-    elif fmt == "json":
-        console.print(format_as_json(papers))
-    elif fmt == "markdown":
-        console.print(format_as_markdown(papers))
-    else:
-        console.print(f"[red]Unknown format: {fmt}[/red]")
-        raise typer.Exit(1)
+    _output_papers(papers, fmt, console)
 
 
 @app.command()
@@ -138,9 +174,7 @@ def suggest(
             console.print("[yellow]Could not fetch README; skipping dedup.[/yellow]")
 
     query = " AND ".join(keywords)
-    since_date = None
-    if since:
-        since_date = datetime.fromisoformat(since)
+    since_date = _parse_since(since)
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
@@ -168,15 +202,7 @@ def suggest(
         with console.status("Enriching with Semantic Scholar..."):
             new_papers = enrich_papers(new_papers)
 
-    if fmt == "table":
-        console.print(format_as_table(new_papers))
-    elif fmt == "json":
-        console.print(format_as_json(new_papers))
-    elif fmt == "markdown":
-        console.print(format_as_markdown(new_papers))
-    else:
-        console.print(f"[red]Unknown format: {fmt}[/red]")
-        raise typer.Exit(1)
+    _output_papers(new_papers, fmt, console)
 
     # Append to file if requested
     if append_to:
@@ -217,15 +243,12 @@ def enrich_cmd(
     paper to add citation counts, venue, and open access information.
     """
     query = " AND ".join(keywords)
-    since_date = None
-    if since:
-        since_date = datetime.fromisoformat(since)
+    since_date = _parse_since(since)
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
-    if category:
-        papers = [p for p in papers if category in p.categories]
+    papers = _filter_category(papers, category)
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
@@ -236,15 +259,7 @@ def enrich_cmd(
     with console.status("Enriching with Semantic Scholar..."):
         enriched = enrich_papers(papers)
 
-    if fmt == "table":
-        console.print(format_as_table(enriched))
-    elif fmt == "json":
-        console.print(format_as_json(enriched))
-    elif fmt == "markdown":
-        console.print(format_as_markdown(enriched))
-    else:
-        console.print(f"[red]Unknown format: {fmt}[/red]")
-        raise typer.Exit(1)
+    _output_papers(enriched, fmt, console)
 
 
 @app.command()
@@ -264,15 +279,12 @@ def export(
     File format is determined by extension (.md for markdown, .json for JSON).
     """
     query = " AND ".join(keywords)
-    since_date = None
-    if since:
-        since_date = datetime.fromisoformat(since)
+    since_date = _parse_since(since)
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
-    if category:
-        papers = [p for p in papers if category in p.categories]
+    papers = _filter_category(papers, category)
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
@@ -357,8 +369,7 @@ def watch(
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
-    if category:
-        papers = [p for p in papers if category in p.categories]
+    papers = _filter_category(papers, category)
 
     new_papers = [p for p in papers if p.arxiv_url not in existing_ids]
 
