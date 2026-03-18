@@ -4,7 +4,24 @@
 [![Python](https://img.shields.io/pypi/pyversions/arxiv-curator)](https://pypi.org/project/arxiv-curator/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-arXiv 論文検索・キュレーション CLI ツール / arXiv paper search & curation CLI tool
+**awesome-list の論文、まだ手動で探してますか？**
+
+awesome-xxx リストのメンテナンスで一番大変なのは「新しい論文を見逃さないこと」。
+arXiv を毎日チェックして、既存リストと被ってないか確認して、Markdown に追記して…。
+
+**arxiv-curator はこれを自動化します。**
+
+```bash
+# awesome-list の URL を渡すだけ。リポ名からキーワードを自動抽出し、
+# 既存 329 件と重複チェックした上で、新着論文だけを提案してくれる。
+$ arxiv-curator suggest https://github.com/KwanWaiPang/Awesome-Transformer-based-SLAM
+
+Extracted keywords: Transformer, SLAM
+Found 329 existing entries in README.
+5 new papers (filtered 0 duplicates).
+```
+
+awesome-list キュレーターのための CLI ツール。姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator)（GitHub リポジトリの星数更新・リンク切れチェック）と組み合わせると、リストのメンテナンスがほぼ全自動になります。
 
 ---
 
@@ -12,10 +29,13 @@ arXiv 論文検索・キュレーション CLI ツール / arXiv paper search & 
 
 ### 概要
 
-`arxiv-curator` は arXiv の論文をキーワードで検索し、awesome-list 形式で整理するための CLI ツールです。
-GitHub の awesome リポジトリと連携し、既存論文と重複しない新着論文を提案できます。
-
-姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator) と組み合わせることで、論文とリポジトリの両方を効率的にキュレーションできます。
+| こんな課題 | arxiv-curator の解決策 |
+|---|---|
+| arXiv の新着論文を毎日チェックする時間がない | `search` コマンドでキーワード検索を一発実行 |
+| awesome-list に追加すべき論文を見逃す | `suggest` コマンドで既存リストと重複しない新着だけを提案 |
+| 特定カテゴリ (cs.CV, cs.RO) に絞りたい | `--category` フィルタで絞り込み |
+| 定期的に新着をウォッチしたい | `watch` コマンド + GitHub Actions で週次自動チェック |
+| 結果を awesome-list 形式でそのまま貼りたい | `--format markdown` で awesome-list 互換の Markdown 出力 |
 
 ### インストール
 
@@ -115,10 +135,19 @@ Found 329 existing entries in README.
 
 ### Overview
 
-`arxiv-curator` is a CLI tool for searching arXiv papers by keywords and curating them in awesome-list format.
-It integrates with GitHub awesome repositories to suggest new papers that are not already listed.
+**Still manually checking arXiv for your awesome-list?**
 
-Use it alongside the companion project [github-curator](https://github.com/rsasaki0109/github-curator) to curate both papers and repositories efficiently.
+The hardest part of maintaining an awesome-xxx list is keeping up with new papers. arxiv-curator automates this:
+
+| Problem | Solution |
+|---|---|
+| No time to check arXiv daily | `search` command with keyword + date filters |
+| Missing papers that should be in your list | `suggest` auto-extracts keywords from repo name, deduplicates against existing entries |
+| Need only specific categories (cs.CV, cs.RO) | `--category` filter |
+| Want weekly automated checks | `watch` command + GitHub Actions |
+| Need results in awesome-list format | `--format markdown` outputs awesome-list compatible Markdown |
+
+Use alongside [github-curator](https://github.com/rsasaki0109/github-curator) (star count updates, broken link checks) for near-fully-automated list maintenance.
 
 ### Installation
 
