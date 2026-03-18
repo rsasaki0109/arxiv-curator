@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import arxiv
 
@@ -40,7 +40,7 @@ def search_papers(
     papers: list[Paper] = []
     for result in client.results(search):
         published = result.published
-        if since_date and published < since_date:
+        if since_date and published < since_date.replace(tzinfo=timezone.utc):
             continue
         papers.append(
             Paper(
