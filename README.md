@@ -48,6 +48,13 @@ arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --since 2025-01-01 --format markdown
 ```
 
+#### Web デモ
+
+```bash
+pip install arxiv-curator[web]
+streamlit run app.py
+```
+
 #### エクスポート
 
 ```bash
@@ -98,6 +105,13 @@ arxiv-curator suggest https://github.com/xxx/Awesome-Transformer-based-SLAM
 
 # With date filter
 arxiv-curator suggest https://github.com/xxx/Awesome-SLAM --since 2025-01-01 --format markdown
+```
+
+#### Web Demo
+
+```bash
+pip install arxiv-curator[web]
+streamlit run app.py
 ```
 
 #### Export results
