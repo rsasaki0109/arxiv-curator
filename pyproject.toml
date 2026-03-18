@@ -31,6 +31,10 @@ dependencies = [
     "requests>=2.28.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+web = ["streamlit>=1.30.0"]
+
 [project.urls]
 Homepage = "https://github.com/rsasaki0109/arxiv-curator"
 Repository = "https://github.com/rsasaki0109/arxiv-curator"

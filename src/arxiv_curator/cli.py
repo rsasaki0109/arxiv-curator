@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +34,9 @@ def search(
     fmt: str = typer.Option(
         "table", "--format", "-f", help="Output format: table, json, markdown"
     ),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
 ) -> None:
     """Search arXiv for papers matching keywords."""
     query = " AND ".join(keywords)
@@ -42,6 +46,9 @@ def search(
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    if category:
+        papers = [p for p in papers if category in p.categories]
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
@@ -141,6 +148,9 @@ def export(
         None, "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
     ),
     max_results: int = typer.Option(20, "--max-results", "-n", help="Max results"),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
 ) -> None:
     """Export arXiv search results to a file.
 
@@ -153,6 +163,9 @@ def export(
 
     with console.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    if category:
+        papers = [p for p in papers if category in p.categories]
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
@@ -170,6 +183,62 @@ def export(
     output.write_text(content, encoding="utf-8")
     console.print(
         f"Exported [bold green]{len(papers)}[/bold green] papers to {output}"
+    )
+
+
+@app.command()
+def watch(
+    keywords: list[str] = typer.Argument(..., help="Search keywords"),
+    output_dir: Path = typer.Option(
+        ".", "--output-dir", "-o", help="Directory to store results JSON"
+    ),
+    days: int = typer.Option(7, "--days", "-d", help="Look back N days"),
+    max_results: int = typer.Option(50, "--max-results", "-n", help="Max results"),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+) -> None:
+    """Watch arXiv for new papers (designed for periodic runs).
+
+    Searches for papers from the last N days, deduplicates against
+    previously seen results, and appends new papers to a JSON file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = "_".join(keywords).replace(" ", "_").lower()
+    output_file = output_dir / f"watch_{safe_name}.json"
+
+    # Load existing papers
+    existing_ids: set[str] = set()
+    existing_papers: list[dict] = []
+    if output_file.exists():
+        try:
+            existing_papers = json.loads(output_file.read_text(encoding="utf-8"))
+            for p in existing_papers:
+                existing_ids.add(p.get("arxiv_url", ""))
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    since_date = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    query = " AND ".join(keywords)
+
+    with console.status("Searching arXiv..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    if category:
+        papers = [p for p in papers if category in p.categories]
+
+    new_papers = [p for p in papers if p.arxiv_url not in existing_ids]
+
+    if new_papers:
+        all_papers = existing_papers + [p.to_dict() for p in new_papers]
+        output_file.write_text(
+            json.dumps(all_papers, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    console.print(
+        f"Found [bold green]{len(new_papers)}[/bold green] new papers "
+        f"(total {len(existing_papers) + len(new_papers)} in {output_file})."
     )
 
 
