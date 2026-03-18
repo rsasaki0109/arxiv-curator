@@ -4,34 +4,40 @@
 [![Python](https://img.shields.io/pypi/pyversions/arxiv-curator)](https://pypi.org/project/arxiv-curator/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-arXiv の論文をキーワードで検索し、Markdown 形式で出力する CLI ツールです。
-GitHub 上の論文リストの URL を渡すと、リポジトリ名からキーワードを自動抽出し、リストにまだ載っていない新着論文を提案します。
+arXiv の新着論文を自動で発見する CLI ツールです。
+キーワード検索、カテゴリフィルタ、引用数付きの論文情報取得を、コマンド一発で実行できます。
 
 ```bash
-# 論文リストの URL を渡すだけ。リポ名からキーワードを自動抽出し、
-# 既存 329 件と重複チェックした上で、新着論文だけを提案してくれる。
-$ arxiv-curator suggest https://github.com/KwanWaiPang/Awesome-Transformer-based-SLAM
+$ arxiv-curator search transformer SLAM --since 2025-01-01 --max-results 5
+Found 5 papers.
 
-Extracted keywords: Transformer, SLAM
-Found 329 existing entries in README.
-5 new papers (filtered 0 duplicates).
+                                  arXiv Papers
+┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ #    ┃ Title                   ┃ Authors             ┃ Published    ┃ Categories     ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ 1    │ SLAM Adversarial Lab    │ Mohamed Hefny et al.│ 2026-03-17   │ cs.RO, cs.CV   │
+│ 2    │ AIM-SLAM: Dense ...     │ Jinwoo Jeon et al.  │ 2026-03-05   │ cs.RO          │
+│ ...  │                         │                     │              │                │
+└──────┴─────────────────────────┴─────────────────────┴──────────────┴────────────────┘
 ```
 
-姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator)（GitHub リポジトリの星数更新・リンク切れチェック）と組み合わせて使えます。
+GitHub 上の論文リストの URL を渡すと、リポ名からキーワードを自動抽出し、既存エントリと重複しない新着だけを提案する `suggest` コマンドもあります。
+
+姉妹プロジェクト [github-curator](https://github.com/rsasaki0109/github-curator)（GitHub リポジトリの健全性チェック）と組み合わせて使えます。
 
 ---
 
 ## 日本語
 
-### 概要
+### 機能
 
-| こんな課題 | arxiv-curator の解決策 |
+| 機能 | 説明 |
 |---|---|
-| arXiv の新着論文を毎日チェックする時間がない | `search` コマンドでキーワード検索を一発実行 |
-| GitHub 上の論文リストに追加すべき論文を見逃す | `suggest` コマンドで既存リストと重複しない新着だけを提案 |
-| 特定カテゴリ (cs.CV, cs.RO) に絞りたい | `--category` フィルタで絞り込み |
-| 定期的に新着をウォッチしたい | `watch` コマンド + GitHub Actions で週次自動チェック |
-| 結果を Markdown でそのまま貼りたい | `--format markdown` で論文リスト互換の Markdown 出力 |
+| `search` | キーワード・カテゴリ・日付で arXiv 論文を検索 |
+| `suggest` | GitHub の論文リストURL を渡すと、載っていない新着論文を提案 |
+| `enrich` | Semantic Scholar API で引用数・学会名・コードリンクを付加 |
+| `watch` | 定期実行用。新着論文を差分検出して JSON に蓄積 |
+| `export` | 検索結果を Markdown / JSON ファイルに出力 |
 
 ### arXiv API を直接使う場合との違い
 
@@ -199,8 +205,8 @@ Found 329 existing entries in README.
 
 ### Overview
 
-A CLI tool that searches arXiv for papers by keyword and outputs results in Markdown format.
-Pass a URL of a GitHub repository containing a paper list (Markdown with paper links), and it automatically extracts keywords from the repository name, then suggests new papers not already in the list.
+A CLI tool for discovering new papers on arXiv.
+Search by keywords, filter by category and date, and enrich results with citation counts from Semantic Scholar.
 
 | Feature | Description |
 |---|---|
