@@ -18,7 +18,7 @@ from arxiv_curator.models import EnrichedPaper, Paper
 
 S2_BASE_URL = "https://api.semanticscholar.org/graph/v1"
 S2_FIELDS = "citationCount,venue,year,isOpenAccess,openAccessPdf,externalIds"
-REQUEST_INTERVAL = 0.5  # seconds between requests
+REQUEST_INTERVAL = 3.0  # seconds between requests (100 req / 5 min without API key)
 
 
 def _extract_arxiv_id(arxiv_url: str) -> str | None:
@@ -41,13 +41,25 @@ def enrich_paper(paper: Paper, timeout: int = 10) -> EnrichedPaper:
         return EnrichedPaper.from_paper(paper)
 
     url = f"{S2_BASE_URL}/paper/ARXIV:{arxiv_id}"
-    try:
-        resp = requests.get(url, params={"fields": S2_FIELDS}, timeout=timeout)
-        if resp.status_code == 404:
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, params={"fields": S2_FIELDS}, timeout=timeout)
+            if resp.status_code == 404:
+                return EnrichedPaper.from_paper(paper)
+            if resp.status_code == 429:
+                wait = min(2 ** attempt * 5, 30)  # 5s, 10s, 30s
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            break
+        except (requests.RequestException, ValueError):
+            if attempt < max_retries - 1:
+                time.sleep(2)
+                continue
             return EnrichedPaper.from_paper(paper)
-        resp.raise_for_status()
-        data = resp.json()
-    except (requests.RequestException, ValueError):
+    else:
         return EnrichedPaper.from_paper(paper)
 
     citation_count = data.get("citationCount") or 0
