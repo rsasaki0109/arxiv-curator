@@ -145,9 +145,21 @@ arxiv-curator watch --from-awesome https://github.com/xxx/Awesome-SLAM --days 14
 # SLAM 分野の論文マップを生成
 arxiv-curator map transformer SLAM --since 2024-01-01 --max-results 50
 
+# Markdown レポートとして出力
+arxiv-curator map transformer SLAM --markdown
+
+# Markdown ファイルに保存
+arxiv-curator map transformer SLAM --output field_map.md
+
 # JSON で保存
 arxiv-curator map "3D generation" --output field_map.json
 ```
+
+`map` コマンドの出力には以下の分析が含まれます:
+- **Topic Clusters**: 論文タイトルのキーワードに基づくトピック別グループ化
+- **Code Availability Trend**: 年ごとのコード公開率の推移
+- **Key Papers**: 引用数トップの重要論文
+- **Gaps & Opportunities**: コード公開率が低いトピック・年、活動が少ない年の検出
 
 #### 論文ランキング
 
@@ -157,7 +169,16 @@ arxiv-curator rank transformer SLAM --since 2024-01-01 --top 10
 
 # カテゴリフィルタ付き
 arxiv-curator rank "visual odometry" --category cs.RO --top 5
+
+# JSON ファイルにスコア詳細を保存
+arxiv-curator rank transformer SLAM --top 10 --output ranking.json
 ```
+
+ランキング出力には以下の情報が含まれます:
+- **Percentile**: 全論文中の相対順位（Top 5% など）
+- **Category**: スコアに基づくラベル（Must read / Recommended / Worth checking / Low priority）
+- **Hidden gem**: 最近の論文でコード公開済みだが引用が少ない「隠れた良論文」を自動検出
+- **Summary**: Must read 数、コード公開率、平均引用数などの統計情報
 
 #### Web デモ
 
@@ -366,9 +387,21 @@ arxiv-curator watch --from-awesome https://github.com/xxx/Awesome-SLAM --days 14
 # Generate a field map for SLAM research
 arxiv-curator map transformer SLAM --since 2024-01-01 --max-results 50
 
+# Output as Markdown report
+arxiv-curator map transformer SLAM --markdown
+
+# Save as Markdown file
+arxiv-curator map transformer SLAM --output field_map.md
+
 # Save as JSON
 arxiv-curator map "3D generation" --output field_map.json
 ```
+
+The `map` command output includes:
+- **Topic Clusters**: groups papers by dominant keywords in titles
+- **Code Availability Trend**: code sharing ratio by year
+- **Key Papers**: top papers by citation count
+- **Gaps & Opportunities**: identifies years/topics with low code availability or activity
 
 #### Rank papers
 
@@ -378,7 +411,16 @@ arxiv-curator rank transformer SLAM --since 2024-01-01 --top 10
 
 # With category filter
 arxiv-curator rank "visual odometry" --category cs.RO --top 5
+
+# Save detailed scoring results to JSON
+arxiv-curator rank transformer SLAM --top 10 --output ranking.json
 ```
+
+The rank output includes:
+- **Percentile**: relative position among all papers (e.g. Top 5%)
+- **Category**: score-based label (Must read / Recommended / Worth checking / Low priority)
+- **Hidden gem**: auto-detects recent papers with code but low citations — underappreciated papers worth checking
+- **Summary**: statistics including Must read count, code availability ratio, average citations
 
 #### Web Demo
 

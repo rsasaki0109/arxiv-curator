@@ -72,9 +72,11 @@ def format_as_markdown(papers: list[Paper]) -> str:
 
 def format_ranked_table(ranked: list[RankedPaper]) -> Table:
     """Create a Rich table for ranked papers."""
-    table = Table(title="Ranked Papers — 今読むべき論文", show_lines=True)
+    table = Table(title="Ranked Papers", show_lines=True)
     table.add_column("Rank", style="dim", width=5, justify="right")
     table.add_column("Score", width=7, justify="right")
+    table.add_column("Percentile", width=10, justify="right")
+    table.add_column("Category", width=15)
     table.add_column("Title", style="bold cyan", max_width=50)
     table.add_column("Citations", style="yellow", justify="right", width=10)
     table.add_column("Venue", style="blue", max_width=20)
@@ -90,10 +92,27 @@ def format_ranked_table(ranked: list[RankedPaper]) -> Table:
         else:
             score_str = f"{rp.score:.0f}"
 
+        percentile_str = f"Top {100 - rp.percentile:.0f}%" if rp.percentile < 100 else "Top 0%"
+        # For the top paper, show "Top 0%" -> adjust to show meaningful value
+        percentile_str = f"Top {max(100 - rp.percentile, 1):.0f}%"
+
+        # Color-code category
+        cat = rp.category
+        if cat == "Must read":
+            cat_str = f"[bold green]{cat}[/bold green]"
+        elif cat == "Recommended":
+            cat_str = f"[yellow]{cat}[/yellow]"
+        elif cat == "Worth checking":
+            cat_str = f"[blue]{cat}[/blue]"
+        else:
+            cat_str = f"[dim]{cat}[/dim]"
+
         signals = ", ".join(rp.reasons)
         table.add_row(
             str(i),
             score_str,
+            percentile_str,
+            cat_str,
             rp.paper.title,
             str(rp.paper.citation_count),
             rp.paper.venue or "-",
@@ -102,6 +121,22 @@ def format_ranked_table(ranked: list[RankedPaper]) -> Table:
         )
 
     return table
+
+
+def format_rank_summary(summary: dict) -> str:
+    """Format rank summary statistics as a string."""
+    total = summary["total"]
+    with_code = summary["with_code"]
+    code_pct = (with_code / total * 100) if total > 0 else 0
+    lines = [
+        "Summary:",
+        f"  Must read: {summary['must_read']} papers",
+        f"  Recommended: {summary['recommended']} papers",
+        f"  With code: {with_code}/{total} ({code_pct:.0f}%)",
+        f"  Top venue papers: {summary['top_venue']}",
+        f"  Average citations: {summary['avg_citations']}",
+    ]
+    return "\n".join(lines)
 
 
 def format_field_map(fm: FieldMap) -> list[Panel | Table]:
@@ -147,6 +182,54 @@ def format_field_map(fm: FieldMap) -> list[Panel | Table]:
         border_style="green",
     )
 
+    # --- Topic Clusters ---
+    cluster_lines: list[str] = []
+    if fm.topic_clusters:
+        for kw, indices in list(fm.topic_clusters.items())[:15]:
+            cluster_lines.append(f"  {kw:<25s} {len(indices)} papers")
+    cluster_panel = Panel(
+        "\n".join(cluster_lines) if cluster_lines else "(no clusters found)",
+        title="Topic Clusters",
+        border_style="magenta",
+    )
+
+    # --- Code Availability Trend ---
+    code_trend_lines: list[str] = []
+    if fm.code_ratio_by_year:
+        for year, (wc, total) in fm.code_ratio_by_year.items():
+            pct = wc / max(total, 1) * 100
+            bar_len = int(pct / 100 * 20)
+            bar = "\u2588" * bar_len + "\u2591" * (20 - bar_len)
+            code_trend_lines.append(
+                f"  {year}  {bar} {wc}/{total} ({pct:.0f}%)"
+            )
+    code_trend_panel = Panel(
+        "\n".join(code_trend_lines) if code_trend_lines else "(no data)",
+        title="Code Availability Trend",
+        border_style="yellow",
+    )
+
+    # --- Key Papers ---
+    key_papers_table = Table(title="Key Papers", show_lines=True)
+    key_papers_table.add_column("#", style="dim", width=4)
+    key_papers_table.add_column("Title", style="bold yellow", max_width=50)
+    key_papers_table.add_column(
+        "Citations", style="bold green", justify="right", width=10
+    )
+    key_papers_table.add_column("Published", style="green", width=12)
+    key_papers_table.add_column("Code", max_width=50)
+    for rank, idx in enumerate(fm.key_papers, 1):
+        if idx < len(fm.entries):
+            entry = fm.entries[idx]
+            code_str = ", ".join(entry.github_urls) if entry.github_urls else "-"
+            key_papers_table.add_row(
+                str(rank),
+                entry.paper.title,
+                str(entry.paper.citation_count),
+                entry.paper.published.strftime("%Y-%m-%d"),
+                code_str,
+            )
+
     # --- Top papers table (by citation, max 10) ---
     sorted_entries = sorted(
         fm.entries, key=lambda e: e.paper.citation_count, reverse=True
@@ -167,7 +250,27 @@ def format_field_map(fm: FieldMap) -> list[Panel | Table]:
             code_str,
         )
 
-    return [summary_panel, venue_table, year_panel, papers_table]
+    # --- Gaps & Opportunities ---
+    gap_lines: list[str] = []
+    if fm.gaps:
+        for gap in fm.gaps:
+            gap_lines.append(f"  - {gap}")
+    gaps_panel = Panel(
+        "\n".join(gap_lines) if gap_lines else "(no gaps identified)",
+        title="Gaps & Opportunities",
+        border_style="red",
+    )
+
+    return [
+        summary_panel,
+        venue_table,
+        year_panel,
+        cluster_panel,
+        code_trend_panel,
+        key_papers_table,
+        papers_table,
+        gaps_panel,
+    ]
 
 
 def format_as_json(papers: list[Paper]) -> str:

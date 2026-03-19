@@ -16,6 +16,7 @@ from arxiv_curator.formatter import (
     format_as_json,
     format_as_markdown,
     format_as_table,
+    format_rank_summary,
     format_ranked_table,
 )
 from arxiv_curator.models import Paper
@@ -25,7 +26,7 @@ from arxiv_curator.parser import (
     parse_awesome_readme,
     parse_awesome_url,
 )
-from arxiv_curator.ranker import rank_papers
+from arxiv_curator.ranker import compute_summary, rank_papers
 from arxiv_curator.semantic_scholar import enrich_papers
 
 app = typer.Typer(
@@ -428,6 +429,9 @@ def rank(
         None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
     ),
     top: int = typer.Option(10, "--top", "-t", help="Show top N papers"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Save results as JSON file with scoring details"
+    ),
 ) -> None:
     """Rank papers by relevance: citations, recency, code availability, venue.
 
@@ -452,14 +456,42 @@ def rank(
         enriched = enrich_papers(papers)
 
     ranked = rank_papers(enriched)
-    ranked = ranked[:top]
+    display_ranked = ranked[:top]
 
-    console.print(format_ranked_table(ranked))
+    console.print(format_ranked_table(display_ranked))
+
+    # Summary statistics
+    summary = compute_summary(ranked)
+    console.print()
+    console.print(format_rank_summary(summary))
 
     console.print(
-        f"\n[dim]Showing top {len(ranked)} of {len(enriched)} papers, "
+        f"\n[dim]Showing top {len(display_ranked)} of {len(enriched)} papers, "
         "ranked by citations, recency, code availability, and venue.[/dim]"
     )
+
+    # Save JSON output if requested
+    if output:
+        ranked_data = []
+        for rp in ranked:
+            entry = rp.paper.to_dict()
+            entry["score"] = round(rp.score, 1)
+            entry["percentile"] = round(rp.percentile, 1)
+            entry["category"] = rp.category
+            entry["reasons"] = rp.reasons
+            ranked_data.append(entry)
+        result = {
+            "query": query,
+            "total_papers": len(ranked),
+            "summary": summary,
+            "papers": ranked_data,
+        }
+        output.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        console.print(
+            f"\nSaved ranking results to [bold green]{output}[/bold green]"
+        )
 
 
 @app.command(name="map")
@@ -475,11 +507,18 @@ def field_map_cmd(
         None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
     ),
     output: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="Output JSON file"
+        None, "--output", "-o", help="Output file (JSON or Markdown based on extension)"
+    ),
+    markdown: bool = typer.Option(
+        False, "--markdown", help="Output as Markdown instead of Rich tables"
     ),
 ) -> None:
     """Build a field map: papers, code, venues, and trends for a research topic."""
-    from arxiv_curator.fieldmap import build_field_map, field_map_to_json
+    from arxiv_curator.fieldmap import (
+        build_field_map,
+        field_map_to_json,
+        field_map_to_markdown,
+    )
     from arxiv_curator.formatter import format_field_map
 
     query = " AND ".join(keywords)
@@ -502,14 +541,23 @@ def field_map_cmd(
     fm = build_field_map(enriched)
     fm.query = query
 
-    # Display Rich summary
-    for renderable in format_field_map(fm):
-        console.print(renderable)
-        console.print()
+    if markdown:
+        # Output as Markdown
+        md = field_map_to_markdown(fm)
+        print(md)
+    else:
+        # Display Rich summary
+        for renderable in format_field_map(fm):
+            console.print(renderable)
+            console.print()
 
-    # Save JSON if requested
+    # Save to file if requested
     if output:
-        output.write_text(field_map_to_json(fm), encoding="utf-8")
+        suffix = output.suffix.lower()
+        if suffix in (".md", ".markdown"):
+            output.write_text(field_map_to_markdown(fm), encoding="utf-8")
+        else:
+            output.write_text(field_map_to_json(fm), encoding="utf-8")
         console.print(
             f"\nSaved field map to [bold green]{output}[/bold green]"
         )

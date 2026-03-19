@@ -107,3 +107,89 @@ class TestFormatAsJson:
         raw = format_as_json([])
         data = json.loads(raw)
         assert data == []
+
+
+class TestFormatFieldMap:
+    """Tests for the enhanced format_field_map output."""
+
+    def _build_fm(self):
+        from arxiv_curator.fieldmap import build_field_map
+
+        papers = [
+            EnrichedPaper(
+                title="Visual SLAM with Transformers",
+                authors=["Alice"],
+                abstract="Code: https://github.com/a/b",
+                published=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                arxiv_url="https://arxiv.org/abs/2401.00001v1",
+                pdf_url="https://arxiv.org/pdf/2401.00001v1",
+                categories=["cs.CV"],
+                citation_count=100,
+                venue="CVPR",
+            ),
+            EnrichedPaper(
+                title="Dense Visual SLAM",
+                authors=["Bob"],
+                abstract="No code here.",
+                published=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                arxiv_url="https://arxiv.org/abs/2501.00001v1",
+                pdf_url="https://arxiv.org/pdf/2501.00001v1",
+                categories=["cs.CV"],
+                citation_count=50,
+                venue="ICRA",
+            ),
+        ]
+        fm = build_field_map(papers)
+        fm.query = "visual SLAM"
+        return fm
+
+    def test_returns_list_of_renderables(self):
+        from rich.panel import Panel
+        from rich.table import Table
+
+        from arxiv_curator.formatter import format_field_map
+
+        fm = self._build_fm()
+        renderables = format_field_map(fm)
+        assert isinstance(renderables, list)
+        assert len(renderables) == 8  # summary, venues, years, clusters, code trend, key papers, top papers, gaps
+
+    def test_includes_cluster_panel(self):
+        from rich.panel import Panel
+
+        from arxiv_curator.formatter import format_field_map
+
+        fm = self._build_fm()
+        renderables = format_field_map(fm)
+        # The 4th element should be the cluster panel
+        panel_titles = [
+            r.title for r in renderables if isinstance(r, Panel) and r.title
+        ]
+        title_strs = [str(t) for t in panel_titles]
+        assert any("Topic Clusters" in t for t in title_strs)
+
+    def test_includes_code_trend_panel(self):
+        from rich.panel import Panel
+
+        from arxiv_curator.formatter import format_field_map
+
+        fm = self._build_fm()
+        renderables = format_field_map(fm)
+        panel_titles = [
+            r.title for r in renderables if isinstance(r, Panel) and r.title
+        ]
+        title_strs = [str(t) for t in panel_titles]
+        assert any("Code Availability Trend" in t for t in title_strs)
+
+    def test_includes_gaps_panel(self):
+        from rich.panel import Panel
+
+        from arxiv_curator.formatter import format_field_map
+
+        fm = self._build_fm()
+        renderables = format_field_map(fm)
+        panel_titles = [
+            r.title for r in renderables if isinstance(r, Panel) and r.title
+        ]
+        title_strs = [str(t) for t in panel_titles]
+        assert any("Gaps" in t for t in title_strs)
