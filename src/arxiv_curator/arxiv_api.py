@@ -17,6 +17,7 @@ def search_papers(
     query: str,
     max_results: int = 20,
     since_date: datetime | None = None,
+    sort_by: str = "date",
 ) -> list[Paper]:
     """Search arXiv for papers matching *query*.
 
@@ -39,10 +40,14 @@ def search_papers(
         If the arXiv API is unreachable or returns an unexpected error.
     """
     client = arxiv.Client()
+    sort_criterion = (
+        arxiv.SortCriterion.Relevance if sort_by == "relevance"
+        else arxiv.SortCriterion.SubmittedDate
+    )
     search = arxiv.Search(
         query=query,
         max_results=max_results,
-        sort_by=arxiv.SortCriterion.SubmittedDate,
+        sort_by=sort_criterion,
         sort_order=arxiv.SortOrder.Descending,
     )
 

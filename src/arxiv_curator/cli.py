@@ -441,8 +441,8 @@ def rank(
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
 
-    with console.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+    with console.status("Searching arXiv (by relevance)..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance")
 
     papers = _filter_category(papers, category)
 
@@ -524,8 +524,8 @@ def field_map_cmd(
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
 
-    with console.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+    with console.status("Searching arXiv (by relevance)..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance")
 
     papers = _filter_category(papers, category)
 
