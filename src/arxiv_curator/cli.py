@@ -12,7 +12,12 @@ from rich.console import Console
 
 from arxiv_curator import __version__
 from arxiv_curator.arxiv_api import search_papers
-from arxiv_curator.formatter import format_as_json, format_as_markdown, format_as_table
+from arxiv_curator.formatter import (
+    format_as_json,
+    format_as_markdown,
+    format_as_table,
+    format_ranked_table,
+)
 from arxiv_curator.models import Paper
 from arxiv_curator.parser import (
     fetch_readme_content,
@@ -20,6 +25,7 @@ from arxiv_curator.parser import (
     parse_awesome_readme,
     parse_awesome_url,
 )
+from arxiv_curator.ranker import rank_papers
 from arxiv_curator.semantic_scholar import enrich_papers
 
 app = typer.Typer(
@@ -409,6 +415,104 @@ def watch(
         f"Found [bold green]{len(new_papers)}[/bold green] new papers "
         f"(total {len(existing_papers) + len(new_papers)} in {output_file})."
     )
+
+
+@app.command()
+def rank(
+    keywords: list[str] = typer.Argument(..., help="Search keywords"),
+    since: Optional[str] = typer.Option(
+        None, "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
+    ),
+    max_results: int = typer.Option(20, "--max-results", "-n", help="Max results"),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+    top: int = typer.Option(10, "--top", "-t", help="Show top N papers"),
+) -> None:
+    """Rank papers by relevance: citations, recency, code availability, venue.
+
+    Searches arXiv, enriches via Semantic Scholar, and scores each paper
+    to surface "今読むべき論文" (papers you should read now).
+    """
+    query = " AND ".join(keywords)
+    since_date = _parse_since(since)
+
+    with console.status("Searching arXiv..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    papers = _filter_category(papers, category)
+
+    if not papers:
+        console.print("[yellow]No papers found.[/yellow]")
+        raise typer.Exit()
+
+    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+
+    with console.status("Enriching with Semantic Scholar..."):
+        enriched = enrich_papers(papers)
+
+    ranked = rank_papers(enriched)
+    ranked = ranked[:top]
+
+    console.print(format_ranked_table(ranked))
+
+    console.print(
+        f"\n[dim]Showing top {len(ranked)} of {len(enriched)} papers, "
+        "ranked by citations, recency, code availability, and venue.[/dim]"
+    )
+
+
+@app.command(name="map")
+def field_map_cmd(
+    keywords: list[str] = typer.Argument(..., help="Research topic keywords"),
+    since: Optional[str] = typer.Option(
+        None, "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
+    ),
+    max_results: int = typer.Option(
+        50, "--max-results", "-n", help="Max results"
+    ),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Output JSON file"
+    ),
+) -> None:
+    """Build a field map: papers, code, venues, and trends for a research topic."""
+    from arxiv_curator.fieldmap import build_field_map, field_map_to_json
+    from arxiv_curator.formatter import format_field_map
+
+    query = " AND ".join(keywords)
+    since_date = _parse_since(since)
+
+    with console.status("Searching arXiv..."):
+        papers = search_papers(query, max_results=max_results, since_date=since_date)
+
+    papers = _filter_category(papers, category)
+
+    if not papers:
+        console.print("[yellow]No papers found.[/yellow]")
+        raise typer.Exit()
+
+    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+
+    with console.status("Enriching with Semantic Scholar..."):
+        enriched = enrich_papers(papers)
+
+    fm = build_field_map(enriched)
+    fm.query = query
+
+    # Display Rich summary
+    for renderable in format_field_map(fm):
+        console.print(renderable)
+        console.print()
+
+    # Save JSON if requested
+    if output:
+        output.write_text(field_map_to_json(fm), encoding="utf-8")
+        console.print(
+            f"\nSaved field map to [bold green]{output}[/bold green]"
+        )
 
 
 if __name__ == "__main__":
