@@ -241,6 +241,30 @@ Found 329 existing entries in README.
 ...
 ```
 
+#### 論文ランキング
+
+```
+$ arxiv-curator rank "3D gaussian splatting" --since 2023-06-01 --max-results 5 --top 5
+Found 4 papers on arXiv.
+
+                                 Ranked Papers
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃  Rank ┃   Score ┃ Percentile ┃ Category        ┃  Citations ┃ Published   ┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│     1 │     119 │     Top 1% │ Must read       │       7412 │ 2023-08-08  │
+│     2 │      41 │    Top 25% │ Worth checking  │         60 │ 2024-06-17  │
+│     3 │      10 │    Top 50% │ Low priority    │          0 │ 2025-09-09  │
+│     4 │       0 │    Top 75% │ Low priority    │          0 │ 2023-12-01  │
+└───────┴─────────┴────────────┴─────────────────┴────────────┴─────────────┘
+
+Summary:
+  Must read: 1 papers
+  Recommended: 0 papers
+  With code: 0/4 (0%)
+  Top venue papers: 0
+  Average citations: 1868.0
+```
+
 ### github-curator とのパイプライン
 
 [github-curator](https://github.com/rsasaki0109/github-curator) と組み合わせることで、論文検索からリポジトリのヘルスチェックまで一気通貫で実行できます。
@@ -481,6 +505,30 @@ Found 329 existing entries in README.
 - **[AIM-SLAM: Dense Monocular SLAM...](http://arxiv.org/abs/2603.05097v2)** - Jinwoo Jeon et al. (2026-03-05)
 - **[SceneVGGT: VGGT-based online 3D semantic SLAM...](http://arxiv.org/abs/2602.15899v2)** - Anna Gelencsér-Horváth et al. (2026-02-12)
 ...
+```
+
+#### Paper ranking
+
+```
+$ arxiv-curator rank "3D gaussian splatting" --since 2023-06-01 --max-results 5 --top 5
+Found 4 papers on arXiv.
+
+                                 Ranked Papers
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃  Rank ┃   Score ┃ Percentile ┃ Category        ┃  Citations ┃ Published   ┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│     1 │     119 │     Top 1% │ Must read       │       7412 │ 2023-08-08  │
+│     2 │      41 │    Top 25% │ Worth checking  │         60 │ 2024-06-17  │
+│     3 │      10 │    Top 50% │ Low priority    │          0 │ 2025-09-09  │
+│     4 │       0 │    Top 75% │ Low priority    │          0 │ 2023-12-01  │
+└───────┴─────────┴────────────┴─────────────────┴────────────┴─────────────┘
+
+Summary:
+  Must read: 1 papers
+  Recommended: 0 papers
+  With code: 0/4 (0%)
+  Top venue papers: 0
+  Average citations: 1868.0
 ```
 
 ### Pipeline with github-curator
