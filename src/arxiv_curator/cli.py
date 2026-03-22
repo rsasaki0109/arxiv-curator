@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -35,6 +36,7 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+err_console = Console(stderr=True)
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +64,17 @@ def _filter_category(papers: list[Paper], category: str | None) -> list[Paper]:
     return papers
 
 
+def _log(fmt: str) -> Console:
+    """Return the console for status/progress messages.
+
+    When the output format is JSON, messages go to stderr so that
+    stdout contains only valid JSON.
+    """
+    if fmt == "json":
+        return err_console
+    return console
+
+
 def _output_papers(
     papers: list[Paper],
     fmt: str,
@@ -71,10 +84,11 @@ def _output_papers(
     if fmt == "table":
         out_console.print(format_as_table(papers))
     elif fmt == "json":
-        # Use plain print() to avoid Rich markup contaminating JSON output
-        print(format_as_json(papers))
+        sys.stdout.write(format_as_json(papers) + "\n")
+        sys.stdout.flush()
     elif fmt == "markdown":
-        out_console.print(format_as_markdown(papers))
+        sys.stdout.write(format_as_markdown(papers) + "\n")
+        sys.stdout.flush()
     else:
         out_console.print(f"[red]Unknown format: {fmt}[/red]")
         raise typer.Exit(1)
@@ -143,22 +157,23 @@ def search(
     """Search arXiv for papers matching keywords."""
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
+    log = _log(fmt)
 
-    with console.status("Searching arXiv..."):
+    with log.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
     papers = _filter_category(papers, category)
 
     if not papers:
-        console.print("[yellow]No papers found.[/yellow]")
+        log.print("[yellow]No papers found.[/yellow]")
         raise typer.Exit()
 
     papers = _sort_papers(papers, sort)
 
-    console.print(f"Found [bold green]{len(papers)}[/bold green] papers.\n")
+    log.print(f"Found [bold green]{len(papers)}[/bold green] papers.\n")
 
     if enrich:
-        with console.status("Enriching with Semantic Scholar..."):
+        with log.status("Enriching with Semantic Scholar..."):
             papers = enrich_papers(papers)
 
     _output_papers(papers, fmt, console)
@@ -184,51 +199,52 @@ def suggest(
         False, "--enrich", "-e", help="Enrich with Semantic Scholar data"
     ),
 ) -> None:
-    """Suggest new arXiv papers for an awesome-list repository.
+    """Suggest new arXiv papers for a GitHub repository.
 
     Extracts keywords from the repo name, searches arXiv, and filters
     out papers already present in the README.
     """
+    log = _log(fmt)
     keywords = parse_awesome_url(url)
     if not keywords:
-        console.print("[red]Could not extract keywords from URL.[/red]")
+        log.print("[red]Could not extract keywords from URL.[/red]")
         raise typer.Exit(1)
 
-    console.print(f"Extracted keywords: [bold]{', '.join(keywords)}[/bold]")
+    log.print(f"Extracted keywords: [bold]{', '.join(keywords)}[/bold]")
 
     # Fetch README to find existing papers
     existing: set[str] = set()
     readme_text = fetch_readme_content(url)
     if readme_text:
         existing = parse_awesome_readme(readme_text)
-        console.print(
+        log.print(
             f"Found [bold]{len(existing)}[/bold] existing entries in README."
         )
     else:
-        console.print("[yellow]Could not fetch README; skipping dedup.[/yellow]")
+        log.print("[yellow]Could not fetch README; skipping dedup.[/yellow]")
 
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
 
-    with console.status("Searching arXiv..."):
+    with log.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
     # Deduplicate using shared helper
     new_papers = filter_new_papers(papers, existing)
 
     if not new_papers:
-        console.print("[yellow]No new papers found.[/yellow]")
+        log.print("[yellow]No new papers found.[/yellow]")
         raise typer.Exit()
 
     new_papers = _sort_papers(new_papers, sort)
 
-    console.print(
+    log.print(
         f"[bold green]{len(new_papers)}[/bold green] new papers "
         f"(filtered {len(papers) - len(new_papers)} duplicates).\n"
     )
 
     if enrich:
-        with console.status("Enriching with Semantic Scholar..."):
+        with log.status("Enriching with Semantic Scholar..."):
             new_papers = enrich_papers(new_papers)
 
     _output_papers(new_papers, fmt, console)
@@ -273,19 +289,20 @@ def enrich_cmd(
     """
     query = " AND ".join(keywords)
     since_date = _parse_since(since)
+    log = _log(fmt)
 
-    with console.status("Searching arXiv..."):
+    with log.status("Searching arXiv..."):
         papers = search_papers(query, max_results=max_results, since_date=since_date)
 
     papers = _filter_category(papers, category)
 
     if not papers:
-        console.print("[yellow]No papers found.[/yellow]")
+        log.print("[yellow]No papers found.[/yellow]")
         raise typer.Exit()
 
-    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+    log.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
 
-    with console.status("Enriching with Semantic Scholar..."):
+    with log.status("Enriching with Semantic Scholar..."):
         enriched = enrich_papers(papers)
 
     _output_papers(enriched, fmt, console)
