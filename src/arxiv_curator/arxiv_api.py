@@ -28,7 +28,9 @@ def _build_query(query: str, category: str | None = None) -> str:
         q.lower().startswith(p) for p in ("ti:", "au:", "abs:", "all:", "cat:")
     )
 
-    if not has_field_prefix and " " in q:
+    has_boolean = any(op in q.upper() for op in (" AND ", " OR ", " NOT "))
+
+    if not has_field_prefix and not has_boolean and " " in q:
         # Multi-word query – search as an exact phrase in the title field
         # for better relevance, combined with an all-fields search.
         q = f'ti:"{q}" OR all:"{q}"'
