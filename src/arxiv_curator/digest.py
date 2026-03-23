@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from arxiv_curator.fieldmap import STOPWORDS
 from arxiv_curator.models import EnrichedPaper
-from arxiv_curator.ranker import RankedPaper
+from arxiv_curator.ranker import RankedPaper, _CODE_MENTION_RE
 
 
 @dataclass
@@ -101,26 +101,52 @@ def _group_by_topic(
 ) -> dict[str, list[RankedPaper]]:
     """Group ranked papers by hot-topic keywords found in their titles.
 
-    Each paper is assigned to the first matching topic.  Papers that
-    match no topic are placed into an "Other" group.
+    Each paper is assigned to its most specific matching topic (i.e. the
+    topic with the fewest total papers).  Topics that cover >50% of all
+    papers are considered too generic and skipped as grouping keys.
+    Papers that match no surviving topic go into "Other".
     """
-    topic_keywords = [kw for kw, _ in hot_topics]
+    total_papers = len(ranked)
+    threshold = total_papers * 0.5
+
+    # Filter out overly generic topics (>50% of papers)
+    topic_keywords = [kw for kw, count in hot_topics if count <= threshold]
+
+    # If all topics were filtered, keep them all as fallback
+    if not topic_keywords and hot_topics:
+        topic_keywords = [kw for kw, _ in hot_topics]
+
     groups: dict[str, list[RankedPaper]] = {kw: [] for kw in topic_keywords}
     groups["Other"] = []
 
+    # Build a count map so we can pick the most specific (least frequent) topic
+    topic_count = {kw: count for kw, count in hot_topics}
+
     for rp in ranked:
         title_lower = rp.paper.title.lower()
-        placed = False
-        for kw in topic_keywords:
-            if kw in title_lower:
-                groups[kw].append(rp)
-                placed = True
-                break
-        if not placed:
+        # Find all matching topics for this paper
+        matching = [kw for kw in topic_keywords if kw in title_lower]
+        if matching:
+            # Assign to the most specific topic (lowest count)
+            best = min(matching, key=lambda kw: topic_count.get(kw, 0))
+            groups[best].append(rp)
+        else:
             groups["Other"].append(rp)
 
-    # Remove empty groups
-    return {k: v for k, v in groups.items() if v}
+    # Remove empty groups and groups with fewer than 2 papers (except Other)
+    result: dict[str, list[RankedPaper]] = {}
+    ungrouped: list[RankedPaper] = list(groups.get("Other", []))
+    for k, v in groups.items():
+        if k == "Other":
+            continue
+        if len(v) >= 2:
+            result[k] = v
+        else:
+            # Papers from too-small groups go to Other
+            ungrouped.extend(v)
+    if ungrouped:
+        result["Other"] = ungrouped
+    return result
 
 
 def build_digest(
@@ -150,7 +176,10 @@ def build_digest(
     hot_topics = _extract_hot_topics(enriched_papers)
     category_counts = _count_categories(enriched_papers)
     venue_counts = _count_venues(enriched_papers)
-    papers_with_code = sum(1 for p in enriched_papers if p.code_url)
+    papers_with_code = sum(
+        1 for p in enriched_papers
+        if p.code_url or _CODE_MENTION_RE.search(p.abstract)
+    )
     topic_groups = _group_by_topic(ranked_papers, hot_topics)
 
     return Digest(
@@ -185,7 +214,7 @@ def digest_to_markdown(digest: Digest) -> str:
     if digest.category_counts:
         cats = ", ".join(f"{cat}: {cnt}" for cat, cnt in list(digest.category_counts.items())[:5])
         lines.append(f"- Categories: {cats}")
-    lines.append(f"- {digest.papers_with_code} papers have code available")
+    lines.append(f"- {digest.papers_with_code} papers have code available (or mentioned in abstract)")
     if digest.venue_counts:
         venues = ", ".join(f"{v} ({c})" for v, c in list(digest.venue_counts.items())[:5])
         lines.append(f"- Top venues: {venues}")

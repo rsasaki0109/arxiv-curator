@@ -159,7 +159,7 @@ class TestExtractKeywords:
         keywords = _extract_keywords("A New Method for Visual SLAM")
         assert "new" not in keywords
         assert "for" not in keywords
-        assert "method" in keywords
+        assert "method" not in keywords  # "method" is now a stopword
         assert "visual" in keywords
         assert "slam" in keywords
 

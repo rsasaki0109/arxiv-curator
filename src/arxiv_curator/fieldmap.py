@@ -16,6 +16,7 @@ from arxiv_curator.models import EnrichedPaper
 
 # Common English stopwords to exclude from keyword clustering
 STOPWORDS: set[str] = {
+    # English function words
     "a", "an", "the", "for", "of", "and", "in", "with", "using", "based",
     "via", "to", "on", "from", "by", "is", "are", "at", "its", "it",
     "as", "or", "be", "this", "that", "we", "our", "their", "can",
@@ -26,6 +27,14 @@ STOPWORDS: set[str] = {
     "under", "after", "before", "up", "down", "out", "off", "above",
     "below", "both", "but", "if", "then", "so", "any", "only", "own",
     "same", "also", "just",
+    # Common academic adjectives / qualifiers (not meaningful as topics)
+    "high", "better", "fast", "robust", "novel", "improved", "efficient",
+    "large", "small", "simple", "deep", "real", "time", "low", "accurate",
+    "general", "generalized", "unified", "adaptive", "dynamic", "scalable",
+    "fully", "single", "multi", "end", "one", "two", "first", "level",
+    # Generic academic nouns (too vague for topic clustering)
+    "method", "approach", "framework", "model", "network", "system",
+    "performance", "quality", "fidelity", "resolution",
 }
 
 

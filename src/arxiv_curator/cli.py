@@ -593,6 +593,9 @@ def digest(
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Save digest as Markdown report"
     ),
+    strict: bool = typer.Option(
+        False, "--strict", help="Only keep papers with query keywords in title"
+    ),
 ) -> None:
     """Generate a weekly field digest: must-reads, hidden gems, and trends.
 
@@ -616,6 +619,18 @@ def digest(
         )
 
     papers = _filter_category(papers, category)
+
+    # Strict mode: only keep papers where at least one query keyword appears in title
+    if strict:
+        query_keywords = [kw.lower() for kw in keywords]
+        papers = [
+            p for p in papers
+            if any(qk in p.title.lower() for qk in query_keywords)
+        ]
+        if papers:
+            console.print(
+                f"[dim]Strict mode: kept {len(papers)} papers with query keywords in title.[/dim]"
+            )
 
     if not papers:
         console.print("[yellow]No papers found.[/yellow]")
