@@ -122,8 +122,10 @@ def build_generated_list(
     if len(must_reads) < 3:
         must_reads = ranked[:5]  # at least show top 5
 
-    # Categorize
-    categories = _categorize_papers(papers, query_keywords)
+    # Categorize (exclude must-read papers to avoid duplication)
+    must_read_urls = {rp.paper.arxiv_url for rp in must_reads}
+    remaining_papers = [p for p in papers if p.arxiv_url not in must_read_urls]
+    categories = _categorize_papers(remaining_papers, query_keywords)
 
     return GeneratedList(
         query=query,
@@ -142,7 +144,8 @@ def generated_list_to_markdown(gl: GeneratedList) -> str:
     lines: list[str] = []
 
     # Title
-    title = gl.query.replace(" AND ", " ").title()
+    # Preserve acronyms (SLAM, BEV, etc.) by using the original query
+    title = gl.query.replace(" AND ", " ")
     lines.append(f"# {title}")
     lines.append("")
     lines.append(

@@ -216,7 +216,7 @@ class TestGeneratedListToMarkdown:
     def test_contains_title(self) -> None:
         gl = self._build_gl()
         md = generated_list_to_markdown(gl)
-        assert "# Test Topic" in md
+        assert "# test topic" in md
 
     def test_contains_summary(self) -> None:
         gl = self._build_gl()
@@ -250,7 +250,7 @@ class TestGeneratedListToMarkdown:
     def test_empty_list(self) -> None:
         gl = self._build_gl(papers=[])
         md = generated_list_to_markdown(gl)
-        assert "# Test Topic" in md
+        assert "# test topic" in md
         assert "0 papers" in md
 
     def test_github_url_from_abstract(self) -> None:
