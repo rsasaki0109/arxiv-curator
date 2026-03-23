@@ -606,12 +606,12 @@ def digest(
     period_end = datetime.now(tz=timezone.utc)
     period_start = period_end - timedelta(days=days)
 
-    with console.status("Searching arXiv (by relevance)..."):
+    with console.status("Searching arXiv..."):
         papers = search_papers(
             query,
             max_results=max_results,
             since_date=period_start,
-            sort_by="relevance",
+            sort_by="date",
             category=category,
         )
 
