@@ -17,6 +17,7 @@ from arxiv_curator.formatter import (
     format_as_json,
     format_as_markdown,
     format_as_table,
+    format_digest,
     format_rank_summary,
     format_ranked_table,
 )
@@ -578,6 +579,67 @@ def field_map_cmd(
             output.write_text(field_map_to_json(fm), encoding="utf-8")
         console.print(
             f"\nSaved field map to [bold green]{output}[/bold green]"
+        )
+
+
+@app.command()
+def digest(
+    keywords: list[str] = typer.Argument(..., help="Search keywords"),
+    days: int = typer.Option(7, "--days", "-d", help="Look back N days"),
+    max_results: int = typer.Option(50, "--max-results", "-n", help="Max results"),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Save digest as Markdown report"
+    ),
+) -> None:
+    """Generate a weekly field digest: must-reads, hidden gems, and trends.
+
+    One command to get a newsletter-style summary of recent papers in your field.
+    Searches arXiv, enriches via Semantic Scholar, ranks papers, and presents
+    a digest with top papers, hidden gems, and hot topics.
+    """
+    from arxiv_curator.digest import build_digest, digest_to_markdown
+
+    query = " AND ".join(keywords)
+    period_end = datetime.now(tz=timezone.utc)
+    period_start = period_end - timedelta(days=days)
+
+    with console.status("Searching arXiv (by relevance)..."):
+        papers = search_papers(
+            query,
+            max_results=max_results,
+            since_date=period_start,
+            sort_by="relevance",
+            category=category,
+        )
+
+    papers = _filter_category(papers, category)
+
+    if not papers:
+        console.print("[yellow]No papers found.[/yellow]")
+        raise typer.Exit()
+
+    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+
+    with console.status("Enriching with Semantic Scholar..."):
+        enriched = enrich_papers(papers)
+
+    ranked = rank_papers(enriched)
+
+    dg = build_digest(enriched, ranked, query, period_start, period_end)
+
+    for renderable in format_digest(dg):
+        console.print(renderable)
+        console.print()
+
+    # Save Markdown report if requested
+    if output:
+        md = digest_to_markdown(dg)
+        output.write_text(md, encoding="utf-8")
+        console.print(
+            f"\nSaved digest to [bold green]{output}[/bold green]"
         )
 
 

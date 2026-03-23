@@ -12,6 +12,7 @@ from rich.text import Text
 from arxiv_curator.models import EnrichedPaper, Paper
 
 if TYPE_CHECKING:
+    from arxiv_curator.digest import Digest
     from arxiv_curator.fieldmap import FieldMap
     from arxiv_curator.ranker import RankedPaper
 
@@ -279,6 +280,111 @@ def format_field_map(fm: FieldMap) -> list[Panel | Table]:
         papers_table,
         gaps_panel,
     ]
+
+
+def format_digest(digest: Digest) -> list[Panel | Table]:
+    """Create Rich renderables for a digest newsletter.
+
+    Returns a list of Rich objects (panels / tables) that the caller
+    can print one by one.
+    """
+    from datetime import timezone
+
+    start_str = digest.period_start.strftime("%Y-%m-%d")
+    end_str = digest.period_end.strftime("%Y-%m-%d")
+
+    # --- Header panel ---
+    header_panel = Panel(
+        f"[bold]{digest.query}[/bold]\n{start_str} -> {end_str}",
+        title="Weekly Digest",
+        border_style="bold cyan",
+    )
+
+    # --- Overview panel ---
+    overview_lines = [
+        f"  {digest.total_papers} new papers this period",
+    ]
+    if digest.category_counts:
+        cats = ", ".join(
+            f"{cat}: {cnt}"
+            for cat, cnt in list(digest.category_counts.items())[:5]
+        )
+        overview_lines.append(f"  Categories: {cats}")
+    overview_lines.append(
+        f"  {digest.papers_with_code} papers have code available"
+    )
+    if digest.venue_counts:
+        venues = ", ".join(
+            f"{v} ({c})" for v, c in list(digest.venue_counts.items())[:5]
+        )
+        overview_lines.append(f"  Top venues: {venues}")
+    overview_panel = Panel(
+        "\n".join(overview_lines),
+        title="Overview",
+        border_style="green",
+    )
+
+    # --- Must Read table ---
+    must_read_table = Table(title="Must Read (Top 3 by score)", show_lines=True)
+    must_read_table.add_column("Rank", style="dim", width=5, justify="right")
+    must_read_table.add_column("Score", width=7, justify="right")
+    must_read_table.add_column("Title", style="bold cyan", max_width=50)
+    must_read_table.add_column("Citations", style="yellow", justify="right", width=10)
+    must_read_table.add_column("Code", max_width=40)
+    must_read_table.add_column("Signals", max_width=40)
+    for i, rp in enumerate(digest.must_reads, 1):
+        p = rp.paper
+        if rp.score >= 50:
+            score_str = f"[bold green]{rp.score:.0f}[/bold green]"
+        elif rp.score >= 25:
+            score_str = f"[yellow]{rp.score:.0f}[/yellow]"
+        else:
+            score_str = f"{rp.score:.0f}"
+        code_str = p.code_url if p.code_url else "-"
+        signals = ", ".join(rp.reasons)
+        must_read_table.add_row(
+            str(i),
+            score_str,
+            p.title,
+            str(p.citation_count),
+            code_str,
+            signals,
+        )
+
+    result: list[Panel | Table] = [header_panel, overview_panel, must_read_table]
+
+    # --- Hidden Gems panel ---
+    if digest.hidden_gems:
+        now = __import__("datetime").datetime.now(timezone.utc)
+        gem_lines: list[str] = []
+        for rp in digest.hidden_gems:
+            p = rp.paper
+            days_old = (now - p.published.replace(tzinfo=timezone.utc)).days
+            gem_lines.append(
+                f"  {p.title} ({p.citation_count} citations, {days_old} days old)"
+            )
+            if p.code_url:
+                gem_lines.append(f"    -> {p.code_url}")
+        gems_panel = Panel(
+            "\n".join(gem_lines),
+            title="Hidden Gems (recent + code, low citations)",
+            border_style="yellow",
+        )
+        result.append(gems_panel)
+
+    # --- Hot Topics panel ---
+    if digest.hot_topics:
+        topic_lines = [
+            f'  "{kw}" ({count} papers)' for kw, count in digest.hot_topics
+        ]
+        topics_panel = Panel(
+            "\n".join(topic_lines),
+            title="Hot Topics",
+            border_style="magenta",
+        )
+        result.append(topics_panel)
+
+    return result
 
 
 def format_as_json(papers: list[Paper]) -> str:
