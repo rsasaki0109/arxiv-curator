@@ -13,11 +13,38 @@ from arxiv_curator.models import Paper
 logger = logging.getLogger(__name__)
 
 
+def _build_query(query: str, category: str | None = None) -> str:
+    """Build an arXiv API query string.
+
+    - If *category* is given, prepend ``cat:<category> AND``.
+    - If the query looks like a multi-word phrase (contains spaces and no
+      explicit field prefix like ``ti:`` or ``all:``), wrap it with a
+      ``ti:`` prefix so arXiv searches the title for the exact phrase.
+    """
+    q = query.strip()
+
+    # If the query is already using arXiv field prefixes, leave it alone.
+    has_field_prefix = any(
+        q.lower().startswith(p) for p in ("ti:", "au:", "abs:", "all:", "cat:")
+    )
+
+    if not has_field_prefix and " " in q:
+        # Multi-word query – search as an exact phrase in the title field
+        # for better relevance, combined with an all-fields search.
+        q = f'ti:"{q}" OR all:"{q}"'
+
+    if category:
+        q = f"cat:{category} AND ({q})"
+
+    return q
+
+
 def search_papers(
     query: str,
     max_results: int = 20,
     since_date: datetime | None = None,
     sort_by: str = "date",
+    category: str | None = None,
 ) -> list[Paper]:
     """Search arXiv for papers matching *query*.
 
@@ -29,6 +56,9 @@ def search_papers(
         Maximum number of results to return.
     since_date:
         If given, only return papers published on or after this date.
+    category:
+        If given, include the category in the arXiv query so the API
+        returns papers from that category directly.
 
     Returns
     -------
@@ -39,13 +69,14 @@ def search_papers(
     RuntimeError
         If the arXiv API is unreachable or returns an unexpected error.
     """
+    api_query = _build_query(query, category)
     client = arxiv.Client()
     sort_criterion = (
         arxiv.SortCriterion.Relevance if sort_by == "relevance"
         else arxiv.SortCriterion.SubmittedDate
     )
     search = arxiv.Search(
-        query=query,
+        query=api_query,
         max_results=max_results,
         sort_by=sort_criterion,
         sort_order=arxiv.SortOrder.Descending,

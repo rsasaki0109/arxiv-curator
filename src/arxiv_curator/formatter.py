@@ -27,6 +27,7 @@ def format_as_table(papers: list[Paper]) -> Table:
 
     table = Table(title="arXiv Papers", show_lines=True)
     table.add_column("#", style="dim", width=4)
+    table.add_column("arXiv", style="cyan", width=14)
     table.add_column("Title", style="bold cyan", max_width=60)
     table.add_column("Authors", max_width=30)
     table.add_column("Published", style="green", width=12)
@@ -42,8 +43,15 @@ def format_as_table(papers: list[Paper]) -> Table:
         if len(paper.authors) > 2:
             authors_str += " et al."
 
+        # Extract arXiv ID from URL (e.g. "https://arxiv.org/abs/2603.20194v1" → "2603.20194")
+        arxiv_id = paper.arxiv_url.rstrip("/").split("/")[-1]
+        # Strip version suffix like "v1"
+        if "v" in arxiv_id:
+            arxiv_id = arxiv_id.rsplit("v", 1)[0]
+
         row = [
             str(i),
+            arxiv_id,
             paper.title,
             authors_str,
             paper.published.strftime("%Y-%m-%d"),

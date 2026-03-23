@@ -160,8 +160,9 @@ def search(
     log = _log(fmt)
 
     with log.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+        papers = search_papers(query, max_results=max_results, since_date=since_date, category=category)
 
+    # Safety-net post-filter (API query should already restrict category)
     papers = _filter_category(papers, category)
 
     if not papers:
@@ -292,7 +293,7 @@ def enrich_cmd(
     log = _log(fmt)
 
     with log.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+        papers = search_papers(query, max_results=max_results, since_date=since_date, category=category)
 
     papers = _filter_category(papers, category)
 
@@ -328,7 +329,7 @@ def export(
     since_date = _parse_since(since)
 
     with console.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+        papers = search_papers(query, max_results=max_results, since_date=since_date, category=category)
 
     papers = _filter_category(papers, category)
 
@@ -416,7 +417,7 @@ def watch(
     query = " AND ".join(resolved_keywords)
 
     with console.status("Searching arXiv..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date)
+        papers = search_papers(query, max_results=max_results, since_date=since_date, category=category)
 
     papers = _filter_category(papers, category)
 
@@ -459,7 +460,7 @@ def rank(
     since_date = _parse_since(since)
 
     with console.status("Searching arXiv (by relevance)..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance")
+        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance", category=category)
 
     papers = _filter_category(papers, category)
 
@@ -542,7 +543,7 @@ def field_map_cmd(
     since_date = _parse_since(since)
 
     with console.status("Searching arXiv (by relevance)..."):
-        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance")
+        papers = search_papers(query, max_results=max_results, since_date=since_date, sort_by="relevance", category=category)
 
     papers = _filter_category(papers, category)
 
