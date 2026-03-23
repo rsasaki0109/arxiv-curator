@@ -583,6 +583,90 @@ def field_map_cmd(
 
 
 @app.command()
+def generate(
+    keywords: list[str] = typer.Argument(..., help="Research topic keywords"),
+    since: Optional[str] = typer.Option(
+        "2024-01-01", "--since", "-s", help="Only papers after this date (YYYY-MM-DD)"
+    ),
+    max_results: int = typer.Option(50, "--max-results", "-n", help="Max results"),
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by arXiv category (e.g. cs.CV, cs.RO)"
+    ),
+    output: Path = typer.Option(..., "--output", "-o", help="Output Markdown file"),
+    strict: bool = typer.Option(
+        True, "--strict/--no-strict", help="Only keep papers with query keywords in title"
+    ),
+) -> None:
+    """Generate a complete curated paper list for a research topic.
+
+    Searches arXiv, enriches with Semantic Scholar (citations, venues, code),
+    ranks papers, categorizes by sub-topic, and outputs a ready-to-use Markdown
+    document with tables, code links, and venue information.
+    """
+    from arxiv_curator.generator import (
+        build_generated_list,
+        generated_list_to_markdown,
+    )
+
+    query = " AND ".join(keywords)
+    since_date = _parse_since(since)
+
+    with console.status("Searching arXiv (by relevance)..."):
+        papers = search_papers(
+            query,
+            max_results=max_results,
+            since_date=since_date,
+            sort_by="relevance",
+            category=category,
+        )
+
+    papers = _filter_category(papers, category)
+
+    # Strict mode: only keep papers where at least one query keyword appears in title
+    if strict:
+        query_keywords = [kw.lower() for kw in keywords]
+        papers = [
+            p for p in papers
+            if any(qk in p.title.lower() for qk in query_keywords)
+        ]
+        if papers:
+            console.print(
+                f"[dim]Strict mode: kept {len(papers)} papers with query keywords in title.[/dim]"
+            )
+
+    if not papers:
+        console.print("[yellow]No papers found.[/yellow]")
+        raise typer.Exit()
+
+    console.print(f"Found [bold green]{len(papers)}[/bold green] papers on arXiv.\n")
+
+    with console.status("Enriching with Semantic Scholar..."):
+        enriched = enrich_papers(papers)
+
+    ranked = rank_papers(enriched)
+
+    gl = build_generated_list(
+        enriched, ranked, query, keywords, since or "2024-01-01"
+    )
+
+    md = generated_list_to_markdown(gl)
+    output.write_text(md, encoding="utf-8")
+
+    # Show Rich summary
+    console.print(f"\n[bold green]Generated paper list:[/bold green] {output}")
+    console.print(f"  Papers: {gl.total_papers}")
+    console.print(f"  Categories: {len(gl.categories)}")
+    console.print(f"  With code: {gl.papers_with_code}")
+    if gl.must_reads:
+        console.print("  Top papers:")
+        for i, rp in enumerate(gl.must_reads[:3], 1):
+            console.print(
+                f"    {i}. {rp.paper.title} (score: {rp.score:.0f}, "
+                f"citations: {rp.paper.citation_count:,})"
+            )
+
+
+@app.command()
 def digest(
     keywords: list[str] = typer.Argument(..., help="Search keywords"),
     days: int = typer.Option(7, "--days", "-d", help="Look back N days"),
