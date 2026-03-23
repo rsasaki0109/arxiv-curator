@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 from arxiv_curator.models import EnrichedPaper
 from arxiv_curator.ranker import (
+    _score_benchmark_mention,
+    _score_code_mention,
+    _score_multi_author,
     compute_summary,
     get_category_label,
     rank_papers,
@@ -17,13 +20,15 @@ def _make_paper(
     is_open_access: bool = False,
     code_url: str = "",
     days_old: int = 180,
+    abstract: str = "Abstract text",
+    authors: list[str] | None = None,
 ) -> EnrichedPaper:
     """Create an EnrichedPaper for testing."""
     published = datetime.now(timezone.utc) - timedelta(days=days_old)
     return EnrichedPaper(
         title=title,
-        authors=["Author A"],
-        abstract="Abstract text",
+        authors=authors if authors is not None else ["Author A"],
+        abstract=abstract,
         published=published.replace(tzinfo=None),
         arxiv_url="http://arxiv.org/abs/0000.00000",
         pdf_url="http://arxiv.org/pdf/0000.00000",
@@ -96,7 +101,7 @@ class TestRankPapers:
 
     def test_paper_with_no_signals(self) -> None:
         paper = _make_paper(days_old=400)
-        ranked = rank_papers([paper])
+        ranked = rank_papers([paper], use_position=False)
         assert ranked[0].reasons == ["No notable signals"]
         assert ranked[0].score == 0.0
 
@@ -294,3 +299,163 @@ class TestComputeSummary:
         # At least one must_read and one low_priority
         assert summary["must_read"] + summary["recommended"] >= 1
         assert summary["low_priority"] >= 1
+
+
+class TestCodeMentionScoring:
+    """Tests for code mention in abstract scoring."""
+
+    def test_github_url_in_abstract(self) -> None:
+        pts, reason = _score_code_mention("Code at https://github.com/foo/bar")
+        assert pts == 15.0
+        assert reason == "Code in abstract"
+
+    def test_source_code_phrase(self) -> None:
+        pts, _ = _score_code_mention("Our source code is released.")
+        assert pts == 15.0
+
+    def test_open_source_phrase(self) -> None:
+        pts, _ = _score_code_mention("We provide an open-source implementation.")
+        assert pts == 15.0
+
+    def test_no_code_mention(self) -> None:
+        pts, reason = _score_code_mention("We study perception for robotics.")
+        assert pts == 0.0
+        assert reason is None
+
+    def test_code_mention_not_applied_when_code_url_exists(self) -> None:
+        """If Semantic Scholar already found a code_url, the abstract
+        code-mention bonus should NOT be added (avoid double counting)."""
+        paper = _make_paper(
+            abstract="Code at https://github.com/foo/bar",
+            code_url="https://github.com/foo/bar",
+            days_old=5,
+        )
+        ranked = rank_papers([paper], use_position=False)
+        # Should have "Code available" but NOT "Code in abstract"
+        assert any("Code available" in r for r in ranked[0].reasons)
+        assert not any("Code in abstract" in r for r in ranked[0].reasons)
+
+
+class TestBenchmarkScoring:
+    """Tests for benchmark/evaluation mention scoring."""
+
+    def test_benchmark_word(self) -> None:
+        pts, reason = _score_benchmark_mention("We evaluate on a benchmark dataset.")
+        assert pts == 5.0
+        assert reason == "Benchmark results"
+
+    def test_sota_mention(self) -> None:
+        pts, _ = _score_benchmark_mention("Our method achieves SOTA results.")
+        assert pts == 5.0
+
+    def test_outperforms_mention(self) -> None:
+        pts, _ = _score_benchmark_mention("Our approach outperforms prior work.")
+        assert pts == 5.0
+
+    def test_no_benchmark(self) -> None:
+        pts, reason = _score_benchmark_mention("We propose a new model.")
+        assert pts == 0.0
+        assert reason is None
+
+
+class TestMultiAuthorScoring:
+    """Tests for multi-author collaboration scoring."""
+
+    def test_more_than_5_authors(self) -> None:
+        pts, reason = _score_multi_author(["A", "B", "C", "D", "E", "F"])
+        assert pts == 5.0
+        assert "6 authors" in reason
+
+    def test_4_authors(self) -> None:
+        pts, reason = _score_multi_author(["A", "B", "C", "D"])
+        assert pts == 3.0
+        assert "4 authors" in reason
+
+    def test_3_authors_no_bonus(self) -> None:
+        pts, reason = _score_multi_author(["A", "B", "C"])
+        assert pts == 0.0
+        assert reason is None
+
+    def test_single_author_no_bonus(self) -> None:
+        pts, _ = _score_multi_author(["A"])
+        assert pts == 0.0
+
+
+class TestCitationIndependentRanking:
+    """Integration tests: papers with code mentions rank higher when
+    all citations are zero (the core problem being fixed)."""
+
+    def test_code_mention_differentiates_zero_citation_papers(self) -> None:
+        """When all papers have 0 citations, code mention should break ties."""
+        papers = [
+            _make_paper(
+                title="Paper A",
+                abstract="We propose a method.",
+                days_old=5,
+            ),
+            _make_paper(
+                title="Paper B",
+                abstract="Code at https://github.com/x/y. We propose a method.",
+                days_old=5,
+            ),
+        ]
+        ranked = rank_papers(papers, use_position=False)
+        assert ranked[0].paper.title == "Paper B"
+        assert ranked[0].score > ranked[1].score
+
+    def test_benchmark_differentiates_zero_citation_papers(self) -> None:
+        papers = [
+            _make_paper(
+                title="Paper A",
+                abstract="We propose a method.",
+                days_old=5,
+            ),
+            _make_paper(
+                title="Paper B",
+                abstract="Our method outperforms all baselines on the benchmark.",
+                days_old=5,
+            ),
+        ]
+        ranked = rank_papers(papers, use_position=False)
+        assert ranked[0].paper.title == "Paper B"
+
+    def test_multi_author_differentiates_zero_citation_papers(self) -> None:
+        papers = [
+            _make_paper(
+                title="Paper A",
+                abstract="We propose a method.",
+                authors=["A", "B"],
+                days_old=5,
+            ),
+            _make_paper(
+                title="Paper B",
+                abstract="We propose a method.",
+                authors=["A", "B", "C", "D", "E", "F"],
+                days_old=5,
+            ),
+        ]
+        ranked = rank_papers(papers, use_position=False)
+        assert ranked[0].paper.title == "Paper B"
+
+    def test_all_signals_combined_for_new_papers(self) -> None:
+        """A new paper with code mention + benchmark + many authors should
+        score significantly higher than a plain new paper."""
+        plain = _make_paper(
+            title="Plain",
+            abstract="A simple approach.",
+            authors=["A"],
+            days_old=3,
+        )
+        rich = _make_paper(
+            title="Rich",
+            abstract=(
+                "Our open-source implementation outperforms baselines "
+                "on the benchmark. Code at https://github.com/x/y"
+            ),
+            authors=["A", "B", "C", "D", "E", "F"],
+            days_old=3,
+        )
+        ranked = rank_papers([plain, rich], use_position=False)
+        assert ranked[0].paper.title == "Rich"
+        # Expect at least 20 points difference (15+5+5 = 25 from new signals)
+        assert ranked[0].score - ranked[1].score >= 20

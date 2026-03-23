@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -13,6 +14,31 @@ from arxiv_curator.models import EnrichedPaper
 CATEGORY_MUST_READ = 70
 CATEGORY_RECOMMENDED = 50
 CATEGORY_WORTH_CHECKING = 30
+
+# Patterns that suggest code is mentioned in the abstract
+_CODE_MENTION_PATTERNS = [
+    r"github\.com",
+    r"code is available",
+    r"our code",
+    r"source code",
+    r"open[\-\s]source",
+    r"implementation is available",
+]
+_CODE_MENTION_RE = re.compile(
+    "|".join(_CODE_MENTION_PATTERNS), re.IGNORECASE
+)
+
+# Patterns that suggest benchmark/evaluation results
+_BENCHMARK_PATTERNS = [
+    r"\bbenchmark\b",
+    r"\bstate[\-\s]of[\-\s]the[\-\s]art\b",
+    r"\bSOTA\b",
+    r"\boutperforms\b",
+    r"\bevaluation\b",
+]
+_BENCHMARK_RE = re.compile(
+    "|".join(_BENCHMARK_PATTERNS), re.IGNORECASE
+)
 
 
 def get_category_label(score: float) -> str:
@@ -50,7 +76,60 @@ def _is_hidden_gem(paper: EnrichedPaper, days_old: int) -> bool:
     )
 
 
-def rank_papers(papers: list[EnrichedPaper]) -> list[RankedPaper]:
+def _score_code_mention(abstract: str) -> tuple[float, str | None]:
+    """Score bonus when abstract mentions code availability.
+
+    Returns (points, reason) or (0, None).
+    """
+    if _CODE_MENTION_RE.search(abstract):
+        return 15.0, "Code in abstract"
+    return 0.0, None
+
+
+def _score_benchmark_mention(abstract: str) -> tuple[float, str | None]:
+    """Score bonus when abstract mentions benchmarks or evaluations.
+
+    Returns (points, reason) or (0, None).
+    """
+    if _BENCHMARK_RE.search(abstract):
+        return 5.0, "Benchmark results"
+    return 0.0, None
+
+
+def _score_multi_author(authors: list[str]) -> tuple[float, str | None]:
+    """Score bonus for multi-author collaboration.
+
+    Returns (points, reason) or (0, None).
+    """
+    n = len(authors)
+    if n > 5:
+        return 5.0, f"{n} authors"
+    if n > 3:
+        return 3.0, f"{n} authors"
+    return 0.0, None
+
+
+def _score_arxiv_position(position: int, total: int) -> tuple[float, str | None]:
+    """Score bonus based on arXiv relevance position.
+
+    Papers returned earlier by arXiv relevance sort get a small bonus
+    (0-10 points, linearly scaled).
+
+    Returns (points, reason) or (0, None).
+    """
+    if total <= 1:
+        return 10.0, None  # single paper gets full bonus, no reason needed
+    bonus = 10.0 * (1 - position / (total - 1))
+    if bonus >= 1.0:
+        return round(bonus, 1), f"arXiv relevance #{position + 1}"
+    return 0.0, None
+
+
+def rank_papers(
+    papers: list[EnrichedPaper],
+    *,
+    use_position: bool = True,
+) -> list[RankedPaper]:
     """Score and rank papers by multiple signals.
 
     Signals (approximate max contribution):
@@ -58,13 +137,26 @@ def rank_papers(papers: list[EnrichedPaper]) -> list[RankedPaper]:
       - Recency                      30
       - Citation velocity            25
       - Code availability            20
+      - Code mention in abstract     15
       - Top venue                    15
       - Hidden gem bonus             10
+      - arXiv relevance position     10
+      - Benchmark mention             5
+      - Multi-author collaboration    5
       - Open access                   5
+
+    Parameters
+    ----------
+    papers:
+        Enriched papers to rank, in their original order (e.g. arXiv
+        relevance order).
+    use_position:
+        Whether to apply an arXiv-relevance-position bonus.
     """
     ranked: list[RankedPaper] = []
+    total = len(papers)
 
-    for paper in papers:
+    for position, paper in enumerate(papers):
         score = 0.0
         reasons: list[str] = []
 
@@ -126,6 +218,37 @@ def rank_papers(papers: list[EnrichedPaper]) -> list[RankedPaper]:
         if _is_hidden_gem(paper, days_old):
             score += 10
             reasons.append("Hidden gem (recent + code, low citations yet)")
+
+        # 8. Code mention in abstract (useful when Semantic Scholar
+        #    hasn't indexed the code URL yet)
+        if not paper.code_url:
+            pts, reason = _score_code_mention(paper.abstract)
+            if pts > 0:
+                score += pts
+                if reason:
+                    reasons.append(reason)
+
+        # 9. Benchmark / evaluation mention in abstract
+        pts, reason = _score_benchmark_mention(paper.abstract)
+        if pts > 0:
+            score += pts
+            if reason:
+                reasons.append(reason)
+
+        # 10. Multi-author collaboration
+        pts, reason = _score_multi_author(paper.authors)
+        if pts > 0:
+            score += pts
+            if reason:
+                reasons.append(reason)
+
+        # 11. arXiv relevance position bonus
+        if use_position:
+            pts, reason = _score_arxiv_position(position, total)
+            if pts > 0:
+                score += pts
+                if reason:
+                    reasons.append(reason)
 
         if not reasons:
             reasons.append("No notable signals")

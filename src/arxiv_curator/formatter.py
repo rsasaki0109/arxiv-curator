@@ -372,6 +372,32 @@ def format_digest(digest: Digest) -> list[Panel | Table]:
         )
         result.append(gems_panel)
 
+    # --- Papers by Topic table ---
+    if digest.topic_groups:
+        for topic, papers in digest.topic_groups.items():
+            topic_table = Table(
+                title=f"Papers about {topic}: {len(papers)} papers",
+                show_lines=True,
+            )
+            topic_table.add_column("#", style="dim", width=4, justify="right")
+            topic_table.add_column("Score", width=7, justify="right")
+            topic_table.add_column("Title", style="bold cyan", max_width=50)
+            topic_table.add_column("Signals", max_width=50)
+            for idx, rp in enumerate(papers, 1):
+                if rp.score >= 50:
+                    s_str = f"[bold green]{rp.score:.0f}[/bold green]"
+                elif rp.score >= 25:
+                    s_str = f"[yellow]{rp.score:.0f}[/yellow]"
+                else:
+                    s_str = f"{rp.score:.0f}"
+                topic_table.add_row(
+                    str(idx),
+                    s_str,
+                    rp.paper.title,
+                    ", ".join(rp.reasons),
+                )
+            result.append(topic_table)
+
     # --- Hot Topics panel ---
     if digest.hot_topics:
         topic_lines = [

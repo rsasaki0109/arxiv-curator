@@ -30,6 +30,7 @@ class Digest:
     hidden_gems: list[RankedPaper]
     hot_topics: list[tuple[str, int]]
     venue_counts: dict[str, int]
+    topic_groups: dict[str, list[RankedPaper]] = field(default_factory=dict)
 
 
 def _extract_keywords(title: str) -> list[str]:
@@ -94,6 +95,34 @@ def _count_venues(papers: list[EnrichedPaper]) -> dict[str, int]:
     return dict(counter.most_common())
 
 
+def _group_by_topic(
+    ranked: list[RankedPaper],
+    hot_topics: list[tuple[str, int]],
+) -> dict[str, list[RankedPaper]]:
+    """Group ranked papers by hot-topic keywords found in their titles.
+
+    Each paper is assigned to the first matching topic.  Papers that
+    match no topic are placed into an "Other" group.
+    """
+    topic_keywords = [kw for kw, _ in hot_topics]
+    groups: dict[str, list[RankedPaper]] = {kw: [] for kw in topic_keywords}
+    groups["Other"] = []
+
+    for rp in ranked:
+        title_lower = rp.paper.title.lower()
+        placed = False
+        for kw in topic_keywords:
+            if kw in title_lower:
+                groups[kw].append(rp)
+                placed = True
+                break
+        if not placed:
+            groups["Other"].append(rp)
+
+    # Remove empty groups
+    return {k: v for k, v in groups.items() if v}
+
+
 def build_digest(
     enriched_papers: list[EnrichedPaper],
     ranked_papers: list[RankedPaper],
@@ -122,6 +151,7 @@ def build_digest(
     category_counts = _count_categories(enriched_papers)
     venue_counts = _count_venues(enriched_papers)
     papers_with_code = sum(1 for p in enriched_papers if p.code_url)
+    topic_groups = _group_by_topic(ranked_papers, hot_topics)
 
     return Digest(
         query=query,
@@ -134,6 +164,7 @@ def build_digest(
         hidden_gems=hidden_gems,
         hot_topics=hot_topics,
         venue_counts=venue_counts,
+        topic_groups=topic_groups,
     )
 
 
@@ -188,6 +219,21 @@ def digest_to_markdown(digest: Digest) -> str:
             if p.code_url:
                 lines.append(f"  - Code: {p.code_url}")
         lines.append("")
+
+    # Papers by Topic
+    if digest.topic_groups:
+        lines.append("## Papers by Topic")
+        lines.append("")
+        for topic, papers in digest.topic_groups.items():
+            lines.append(f"### Papers about {topic}: {len(papers)} papers")
+            lines.append("")
+            for rp in papers:
+                p = rp.paper
+                signals = ", ".join(rp.reasons)
+                lines.append(
+                    f"- **[{p.title}]({p.arxiv_url})** (score: {rp.score:.0f}) — {signals}"
+                )
+            lines.append("")
 
     # Hot Topics
     if digest.hot_topics:
